@@ -6,9 +6,9 @@
 PROJECT_NAME := fmcomms2_genesys2
 
 M_DEPS += ../common/fmcomms2_bd.tcl
-M_DEPS += ../../common/kc705/genesys2_system_mig.prj
-M_DEPS += ../../common/kc705/genesys2_system_constr.xdc
-M_DEPS += ../../common/kc705/genesys2_system_bd.tcl
+M_DEPS += ../../common/genesys2/genesys2_system_mig.prj
+M_DEPS += ../../common/genesys2/genesys2_system_constr.xdc
+M_DEPS += ../../common/genesys2/genesys2_system_bd.tcl
 M_DEPS += ../../../library/xilinx/common/ad_iobuf.v
 M_DEPS += ../../../library/axi_ad9361/axi_ad9361_delay.tcl
 

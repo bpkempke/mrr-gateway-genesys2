@@ -73,8 +73,8 @@ ad_ip_instance proc_sys_reset sys_rstgen
 
 ad_ip_instance mig_7series axi_ddr_cntrl
 set axi_ddr_cntrl_dir [get_property IP_DIR [get_ips [get_property CONFIG.Component_Name [get_bd_cells axi_ddr_cntrl]]]]
-file copy -force $ad_hdl_dir/projects/common/kc705/kc705_system_mig.prj "$axi_ddr_cntrl_dir/"
-ad_ip_parameter axi_ddr_cntrl CONFIG.XML_INPUT_FILE kc705_system_mig.prj
+file copy -force $ad_hdl_dir/projects/common/genesys2/genesys2_system_mig.prj "$axi_ddr_cntrl_dir/"
+ad_ip_parameter axi_ddr_cntrl CONFIG.XML_INPUT_FILE genesys2_system_mig.prj
 
 # instance: default peripherals
 
