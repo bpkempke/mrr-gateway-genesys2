@@ -8,7 +8,7 @@ HDL_LIBRARY_PATH := $(HDL_PROJECT_PATH)../library/
 
 include $(HDL_PROJECT_PATH)../quiet.mk
 
-VIVADO := vivado -mode batch -source
+VIVADO := vivado -mode gui -source
 
 CLEAN_TARGET := *.cache
 CLEAN_TARGET += *.data

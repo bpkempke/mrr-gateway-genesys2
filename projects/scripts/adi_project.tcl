@@ -43,7 +43,7 @@ proc adi_project_xilinx {project_name {mode 0}} {
   }
   if [regexp "_genesys2$" $project_name] {
     set p_device "xc7k325tffg900-2"
-    set p_board "xilinx.com:genesys2:part0:1.1"
+    set p_board "digilentinc.com:genesys2:part0:1.1"
     set sys_zynq 0
   }
   if [regexp "_vc707$" $project_name] {
