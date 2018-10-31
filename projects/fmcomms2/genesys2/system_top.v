@@ -37,18 +37,18 @@
 
 module system_top (
 
-  output phy_rst_n,
+  //output phy_rst_n,
   inout qspi_flash_io0_io,
   inout qspi_flash_io1_io,
   inout qspi_flash_io2_io,
   inout qspi_flash_io3_io,
   inout qspi_flash_ss_io,
-  input [3:0]rgmii_rd,
-  input rgmii_rx_ctl,
-  input rgmii_rxc,
-  output [3:0]rgmii_td,
-  output rgmii_tx_ctl,
-  output rgmii_txc,
+  //input [3:0]rgmii_rd,
+  //input rgmii_rx_ctl,
+  //input rgmii_rxc,
+  //output [3:0]rgmii_td,
+  //output rgmii_tx_ctl,
+  //output rgmii_txc,
 
   input                   sys_rst,
   input                   sys_clk_p,
@@ -57,8 +57,8 @@ module system_top (
   input                   uart_sin,
   output                  uart_sout,
 
-  output      [ 2:0]      ddr3_1_n,
-  output      [ 1:0]      ddr3_1_p,
+  //output      [ 2:0]      ddr3_1_n,
+  //output      [ 1:0]      ddr3_1_p,
   output                  ddr3_reset_n,
   output      [14:0]      ddr3_addr,
   output      [ 2:0]      ddr3_ba,
@@ -75,14 +75,14 @@ module system_top (
   inout       [ 3:0]      ddr3_dqs_p,
   output      [ 0:0]      ddr3_odt,
 
-  output                  mdio_mdc,
-  inout                   mdio_mdio,
+  //output                  mdio_mdc,
+  //inout                   mdio_mdio,
 
   output                  fan_pwm,
 
   inout       [16:0]      gpio_bd,
 
-  output                  iic_rstn,
+  //output                  iic_rstn,
   inout                   iic_scl,
   inout                   iic_sda,
 
@@ -126,10 +126,10 @@ module system_top (
 
   // default logic
 
-  assign ddr3_1_p = 2'b11;
-  assign ddr3_1_n = 3'b000;
+  //assign ddr3_1_p = 2'b11;
+  //assign ddr3_1_n = 3'b000;
   assign fan_pwm  = 1'b1;
-  assign iic_rstn = 1'b1;
+  //assign iic_rstn = 1'b1;
   assign spi_csn_0 = spi_csn[0];
 
   // instantiations
@@ -154,18 +154,18 @@ module system_top (
   assign gpio_i[31:17] = gpio_o[31:17];
 
   system_wrapper i_system_wrapper (
-    .phy_rst_n (phy_rst_n),
+    //.phy_rst_n (phy_rst_n),
     .qspi_flash_io0_io (qspi_flash_io0_io),
     .qspi_flash_io1_io (qspi_flash_io1_io),
     .qspi_flash_io2_io (qspi_flash_io2_io),
     .qspi_flash_io3_io (qspi_flash_io3_io),
     .qspi_flash_ss_io (qspi_flash_ss_io),
-    .rgmii_rd (rgmii_rd),
-    .rgmii_rx_ctl (rgmii_rx_ctl),
-    .rgmii_rxc (rgmii_rxc),
-    .rgmii_td (rgmii_td),
-    .rgmii_tx_ctl (rgmii_tx_ctl),
-    .rgmii_txc (rgmii_txc),
+    //.rgmii_rd (rgmii_rd),
+    //.rgmii_rx_ctl (rgmii_rx_ctl),
+    //.rgmii_rxc (rgmii_rxc),
+    //.rgmii_td (rgmii_td),
+    //.rgmii_tx_ctl (rgmii_tx_ctl),
+    //.rgmii_txc (rgmii_txc),
 
     .ddr3_addr (ddr3_addr),
     .ddr3_ba (ddr3_ba),
@@ -190,11 +190,11 @@ module system_top (
     .gpio1_o (gpio_o[63:32]),
     .gpio1_t (gpio_t[63:32]),
     .gpio1_i (gpio_i[63:32]),
-    .mdio_mdc (mdio_mdc),
-    .mdio_mdio_io (mdio_mdio),
+    //.mdio_mdc (mdio_mdc),
+    //.mdio_mdio_io (mdio_mdio),
     .sys_clk_n (sys_clk_n),
     .sys_clk_p (sys_clk_p),
-    .sys_rst (sys_rst),
+    .sys_rst (~sys_rst),
     .spi_clk_i (spi_clk),
     .spi_clk_o (spi_clk),
     .spi_csn_i (spi_csn),
