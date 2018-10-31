@@ -11,8 +11,6 @@ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:ddrx_rtl:1.0 ddr3
 create_bd_intf_port -mode Master -vlnv xilinx.com:interface:mdio_rtl:1.0 mdio
 create_bd_intf_port -mode Master -vlnv xilinx.com:interface:rgmii_rtl:1.0 rgmii
 
-create_bd_intf_port -mode Master -vlnv xilinx.com:interface:gpio_rtl:1.0 gpio_lcd
-
 create_bd_intf_port -mode Master -vlnv xilinx.com:interface:iic_rtl:1.0 iic_main
 
 create_bd_port -dir I uart_sin
@@ -98,10 +96,6 @@ ad_ip_instance axi_uartlite axi_uart
 ad_ip_parameter axi_uart CONFIG.C_BAUDRATE 115200
 
 ad_ip_instance axi_timer axi_timer
-
-ad_ip_instance axi_gpio axi_gpio_lcd
-ad_ip_parameter axi_gpio_lcd CONFIG.C_GPIO_WIDTH 7
-ad_ip_parameter axi_gpio_lcd CONFIG.C_INTERRUPT_PRESENT 1
 
 ad_ip_instance axi_quad_spi axi_spi
 ad_ip_parameter axi_spi CONFIG.C_USE_STARTUP 0
@@ -193,7 +187,7 @@ ad_connect sys_concat_intc/In1    axi_ethernet/interrupt
 ad_connect sys_concat_intc/In2    axi_ethernet_dma/mm2s_introut
 ad_connect sys_concat_intc/In3    axi_ethernet_dma/s2mm_introut
 ad_connect sys_concat_intc/In4    axi_uart/interrupt
-ad_connect sys_concat_intc/In5    axi_gpio_lcd/ip2intc_irpt
+ad_connect sys_concat_intc/In5    GND
 ad_connect sys_concat_intc/In6    GND
 ad_connect sys_concat_intc/In7    GND
 ad_connect sys_concat_intc/In8    GND
@@ -216,7 +210,6 @@ ad_connect  mdio axi_ethernet/mdio
 ad_connect  rgmii axi_ethernet/rgmii
 ad_connect  uart_sin axi_uart/rx
 ad_connect  uart_sout axi_uart/tx
-ad_connect  gpio_lcd axi_gpio_lcd/gpio
 ad_connect  iic_main axi_iic_main/iic
 
 ad_connect  spi_csn_i axi_spi/ss_i
@@ -264,7 +257,6 @@ ad_connect  axi_ethernet/m_axis_rxs axi_ethernet_dma/S_AXIS_STS
 
 ad_cpu_interconnect 0x41400000 sys_mb_debug
 ad_cpu_interconnect 0x40E00000 axi_ethernet
-ad_cpu_interconnect 0x40010000 axi_gpio_lcd
 ad_cpu_interconnect 0x41E10000 axi_ethernet_dma
 ad_cpu_interconnect 0x41200000 axi_intc
 ad_cpu_interconnect 0x41C00000 axi_timer
