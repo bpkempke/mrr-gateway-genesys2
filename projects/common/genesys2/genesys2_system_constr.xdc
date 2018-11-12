@@ -90,8 +90,8 @@ set_property -dict { PACKAGE_PIN W23   IOSTANDARD LVCMOS33 } [get_ports { gpio_b
 #set_property -dict  {PACKAGE_PIN  P23   IOSTANDARD  LVCMOS25} [get_ports iic_rstn]
 
 ########    GOOD   ########
-set_property -dict { PACKAGE_PIN AE30  IOSTANDARD LVCMOS33 } [get_ports { iic_scl }]; #IO_L16P_T2_13 Sch=sys_scl
-set_property -dict { PACKAGE_PIN AF30  IOSTANDARD LVCMOS33 } [get_ports { iic_sda }]; #IO_L16N_T2_13 Sch=sys_sda
+set_property -dict { PACKAGE_PIN AC24  IOSTANDARD LVCMOS33 } [get_ports { iic_scl }]; #IO_L16P_T2_13 Sch=sys_scl
+set_property -dict { PACKAGE_PIN AD24  IOSTANDARD LVCMOS33 } [get_ports { iic_sda }]; #IO_L16N_T2_13 Sch=sys_sda
 
 #Setting the Configuration Bank Voltage Select
 set_property CFGBVS VCCO [current_design]
