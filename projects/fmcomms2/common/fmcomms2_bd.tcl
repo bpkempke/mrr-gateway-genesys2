@@ -85,6 +85,18 @@ ad_ip_instance proc_sys_reset util_ad9361_divclk_reset
 ad_connect sys_rstgen/peripheral_aresetn util_ad9361_divclk_reset/ext_reset_in
 ad_connect util_ad9361_divclk/clk_out util_ad9361_divclk_reset/slowest_sync_clk
 
+# MRR gateway
+
+ad_ip_instance axi_mrr_gateway mrr_gateway
+ad_connect axi_ad9361/l_clk mrr_gateway/ce_clk
+ad_connect axi_ad9361/rst mrr_gateway/ce_rst
+ad_connect axi_ad9361/adc_enable_i0 mrr_gateway/din_enable_0
+ad_connect axi_ad9361/adc_valid_i0 mrr_gateway/din_valid_0
+ad_connect axi_ad9361/adc_data_i0 mrr_gateway/din_data_0
+ad_connect axi_ad9361/adc_enable_q0 mrr_gateway/din_enable_1
+ad_connect axi_ad9361/adc_valid_q0 mrr_gateway/din_valid_1
+ad_connect axi_ad9361/adc_data_q0 mrr_gateway/din_data_1
+
 # adc-path wfifo
 
 ad_ip_instance util_wfifo util_ad9361_adc_fifo
@@ -96,12 +108,12 @@ ad_connect axi_ad9361/l_clk util_ad9361_adc_fifo/din_clk
 ad_connect axi_ad9361/rst util_ad9361_adc_fifo/din_rst
 ad_connect util_ad9361_divclk/clk_out util_ad9361_adc_fifo/dout_clk
 ad_connect util_ad9361_divclk_reset/peripheral_aresetn util_ad9361_adc_fifo/dout_rstn
-ad_connect axi_ad9361/adc_enable_i0 util_ad9361_adc_fifo/din_enable_0
-ad_connect axi_ad9361/adc_valid_i0 util_ad9361_adc_fifo/din_valid_0
-ad_connect axi_ad9361/adc_data_i0 util_ad9361_adc_fifo/din_data_0
-ad_connect axi_ad9361/adc_enable_q0 util_ad9361_adc_fifo/din_enable_1
-ad_connect axi_ad9361/adc_valid_q0 util_ad9361_adc_fifo/din_valid_1
-ad_connect axi_ad9361/adc_data_q0 util_ad9361_adc_fifo/din_data_1
+ad_connect mrr_gateway/out_enable_i0 util_ad9361_adc_fifo/din_enable_0
+ad_connect mrr_gateway/out_valid_i0 util_ad9361_adc_fifo/din_valid_0
+ad_connect mrr_gateway/out_data_i0 util_ad9361_adc_fifo/din_data_0
+ad_connect mrr_gateway/out_enable_q0 util_ad9361_adc_fifo/din_enable_1
+ad_connect mrr_gateway/out_valid_q0 util_ad9361_adc_fifo/din_valid_1
+ad_connect mrr_gateway/out_data_q0 util_ad9361_adc_fifo/din_data_1
 ad_connect axi_ad9361/adc_enable_i1 util_ad9361_adc_fifo/din_enable_2
 ad_connect axi_ad9361/adc_valid_i1 util_ad9361_adc_fifo/din_valid_2
 ad_connect axi_ad9361/adc_data_i1 util_ad9361_adc_fifo/din_data_2
