@@ -1,20 +1,27 @@
 
-module noc_block_mrr_header #(
-  parameter NOC_ID = 64'h0286_0000_0000_0000,
-  parameter VERSION_MAJOR = 16'h0001,
-  parameter VERSION_MINOR = 16'h0010,
-  parameter STR_SINK_FIFOSIZE = 11,
+module axi_mrr_gateway #(
   parameter NUM_FIFOS = 2,                      //Number of FIFOs that share the AXI4 memory space (max 4)
   parameter [NUM_FIFOS*30-1:0] DEFAULT_FIFO_BASE = {30'h02000000, 30'h00000000}, //Default base addr for each FIFO (configurable via setting reg)
   parameter [NUM_FIFOS*30-1:0] DEFAULT_FIFO_SIZE = {30'h01FFFFFF, 30'h01FFFFFF}, //Default size of each FIFO (configurable via setting reg)
   parameter [NUM_FIFOS*12-1:0] DEFAULT_BURST_TIMEOUT = {12'd280, 12'd280}, //Timeout (in memory clock cycles) for issuing smaller than optimal bursts
   parameter EXTENDED_DRAM_BIST = 1              //Prune out additional BIST features for production
 )(
-  input bus_clk, input bus_rst,
   input ce_clk, input ce_rst,
   input dram_clk, input dram_rst,
-  input  [63:0] i_tdata, input  i_tlast, input  i_tvalid, output i_tready,
-  output [63:0] o_tdata, output o_tlast, output o_tvalid, input  o_tready,
+
+  input          adc_enable_i0,
+  input          adc_valid_i0,
+  input  [15:0]  adc_data_i0,
+  input          adc_enable_q0,
+  input          adc_valid_q0,
+  input  [15:0]  adc_data_q0,
+
+  output          out_enable_i0,
+  output          out_valid_i0,
+  output  [15:0]  out_data_i0,
+  output          out_enable_q0,
+  output          out_valid_q0,
+  output  [15:0]  out_data_q0,
 
   //
   // AXI Memory Mapped Interface
@@ -99,136 +106,66 @@ module noc_block_mrr_header #(
   wire [63:0] cmdout_tdata, ackin_tdata;
   wire        cmdout_tlast, cmdout_tvalid, cmdout_tready, ackin_tlast, ackin_tvalid, ackin_tready;
 
-  wire [63:0]    str_sink_tdata;
-  wire           str_sink_tlast, str_sink_tvalid, str_sink_tready;
   wire [63:0]    str_src_tdata[NUM_OUTPUTS-1:0];
   wire [NUM_OUTPUTS-1:0]     str_src_tlast, str_src_tvalid, str_src_tready;
 
-  wire [NUM_OUTPUTS-1:0]  clear_tx_seqnum;
+  //TODO: Probably need to feed these data streams somewhere...
+  assign str_src_tready = {{NUM_OUTPUTS}{1'b1}};
+
+  //TODO: Should this be assigned to anything??
   wire [15:0]    src_sid[NUM_OUTPUTS-1:0], next_dst_sid[NUM_OUTPUTS-1:0];
 
-  wire clear = clear_tx_seqnum[2] | clear_tx_seqnum[1] | clear_tx_seqnum[0];
-
-  //TODO: BYPASS
-  noc_shell #(
-    .NOC_ID(NOC_ID),
-    .STR_SINK_FIFOSIZE(STR_SINK_FIFOSIZE),
-    .INPUT_PORTS(NUM_INPUTS),
-    .OUTPUT_PORTS(NUM_OUTPUTS))
-  noc_shell (
-    .bus_clk(bus_clk), .bus_rst(bus_rst),
-    .i_tdata(i_tdata), .i_tlast(i_tlast), .i_tvalid(i_tvalid), .i_tready(i_tready),
-    .o_tdata(o_tdata), .o_tlast(o_tlast), .o_tvalid(o_tvalid), .o_tready(o_tready),
-    // Computer Engine Clock Domain
-    .clk(ce_clk), .reset(ce_rst),
-    // Control Sink
-    .set_data(set_data), .set_addr(set_addr), .set_stb(set_stb),
-    .rb_stb(1'b1), .rb_data(rb_data), .rb_addr(rb_addr),
-    // Control Source
-    .cmdout_tdata(cmdout_tdata), .cmdout_tlast(cmdout_tlast), .cmdout_tvalid(cmdout_tvalid), .cmdout_tready(cmdout_tready),
-    .ackin_tdata(ackin_tdata), .ackin_tlast(ackin_tlast), .ackin_tvalid(ackin_tvalid), .ackin_tready(ackin_tready),
-    // Stream Sink
-    .str_sink_tdata(str_sink_tdata), .str_sink_tlast(str_sink_tlast), .str_sink_tvalid(str_sink_tvalid), .str_sink_tready(str_sink_tready),
-    // Stream Source
-    .str_src_tdata({str_src_tdata[2],str_src_tdata[1],str_src_tdata[0]}), .str_src_tlast(str_src_tlast), .str_src_tvalid(str_src_tvalid), .str_src_tready(str_src_tready),
-    // Stream IDs set by host 
-    .src_sid({src_sid[2],src_sid[1],src_sid[0]}),                   // SID of this block
-    .next_dst_sid({next_dst_sid[2],next_dst_sid[1],next_dst_sid[0]}),         // Next destination SID
-    .clear_tx_seqnum(clear_tx_seqnum),
-    .debug(debug));
-
-  //AXI Wrapper interfaces with axi_async_stream_with_time_offset to provide our "sync wrapper" functionality
-  //NOTE: This is just for "Port 0" data, both directions (IQ streams)
-  wire [31:0]  m_axis_data_tdata;
-  wire         m_axis_data_tlast;
-  wire         m_axis_data_tvalid;
-  wire         m_axis_data_tready;
-  wire [127:0] m_axis_data_tuser;
-
-  wire [31:0]  m_axis_config_tdata;
-  wire         m_axis_config_tvalid;
-  wire         m_axis_config_tready;
-  
-  wire [31:0]  s_axis_data_tdata;
-  wire         s_axis_data_tlast;
-  wire         s_axis_data_tvalid;
-  wire         s_axis_data_tready;
-  wire [127:0] s_axis_data_tuser;
-
-  //TODO: BYPASS
-  axi_wrapper #(
-    .SIMPLE_MODE(0))
-  axi_wrapper (
-    .clk(ce_clk), .reset(ce_rst),
-    .clear_tx_seqnum(clear),
-    .next_dst(next_dst_sid[2]),
-    .set_stb(set_stb), .set_addr(set_addr), .set_data(set_data),
-    .i_tdata(str_sink_tdata), .i_tlast(str_sink_tlast), .i_tvalid(str_sink_tvalid), .i_tready(str_sink_tready),
-    .o_tdata(str_src_tdata[2]), .o_tlast(str_src_tlast[2]), .o_tvalid(str_src_tvalid[2]), .o_tready(str_src_tready[2]),
-    .m_axis_data_tdata(m_axis_data_tdata),
-    .m_axis_data_tlast(m_axis_data_tlast),
-    .m_axis_data_tvalid(m_axis_data_tvalid),
-    .m_axis_data_tready(m_axis_data_tready),
-    .m_axis_data_tuser(m_axis_data_tuser),
-    .s_axis_data_tdata(s_axis_data_tdata),
-    .s_axis_data_tlast(s_axis_data_tlast),
-    .s_axis_data_tvalid(s_axis_data_tvalid),
-    .s_axis_data_tready(s_axis_data_tready),
-    .s_axis_data_tuser(s_axis_data_tuser),
-    .m_axis_config_tdata(m_axis_config_tdata),
-    .m_axis_config_tlast(),
-    .m_axis_config_tvalid(m_axis_config_tvalid),
-    .m_axis_config_tready(m_axis_config_tready));
+  //TODO: Any other valid sources for 'clear' signal?
+  wire clear = 1'b0;
 
   wire [31:0]    sample_tdata;
   (* dont_touch="true",mark_debug="true"*) wire           sample_tlast, sample_tvalid, sample_tready, sample_tready_fft, sample_tready_iq;
   assign sample_tready = sample_tready_fft & sample_tready_iq;
+
+  reg adc_last;
+  reg adc_valid;
+  reg [15:0] adc_i_in_latched;
+  reg [15:0] adc_q_in_latched;
+  reg [9:0] input_sample_counter;
+
+  always @(posedge ce_clk) begin
+    if(ce_rst) begin
+      input_sample_counter <= 0;
+      adc_valid <= 1'b0;
+      adc_last <= 1'b0;
+      adc_i_in_latched <= 0;
+      adc_q_in_latched <= 0;
+    end else begin
+      if(adc_enable_i0 & adc_valid_i0) begin
+        input_sample_counter <= input_sample_counter + 1;
+        adc_i_in_latched <= adc_data_i0;
+        adc_valid <= 1'b1;
+        adc_last <= (input_sample_counter == 10'h3FF);
+      end
+
+      if(adc_enable_q0 & adc_valid_q0) begin
+        adc_q_in_latched <= adc_data_q0;
+      end
+    end
+  end
+
+  axi_fifo #(.WIDTH(33), .SIZE(10)) input_samples_fifo (
+    .clk(ce_clk),
+    .reset(ce_rst),
+    .clear(clear),
+    .i_tdata({adc_tlast,adc_i_in_latched,adc_q_in_latched}),
+    .i_tready(),
+    .o_tdata({sample_tlast,sample_tdata}),
+    .o_tvalid(sample_tvalid),
+    .o_tready(sample_trady),
+  );
+
   wire [31:0]    out_tdata;
   wire           out_tlast, out_tvalid, out_tready, out_tkeep;
 
   wire [15:0] turnaround_ticks;
   wire [15:0] tick_rate;
   wire [63:0] cur_time;
-
-  //TODO: BYPASS
-  axi_async_stream_with_time_offset #(
-    .WIDTH(32))
-  axi_async_tagged_stream (
-    .clk(ce_clk),
-    .reset(ce_rst),
-    .clear(clear),
-    .src_sid(src_sid[2]),
-    .dst_sid(next_dst_sid[2]),
-    .tick_rate(tick_rate),
-    .time_offset(turnaround_ticks),
-    .eob(1'b1),
-    .use_eob(1'b1),
-    .has_time(1'b1),
-    .use_has_time(1'b1),
-    .cur_time(cur_time),
-    // From AXI Wrapper
-    .s_axis_data_tdata(m_axis_data_tdata),
-    .s_axis_data_tlast(m_axis_data_tlast),
-    .s_axis_data_tvalid(m_axis_data_tvalid),
-    .s_axis_data_tready(m_axis_data_tready),
-    .s_axis_data_tuser(m_axis_data_tuser),
-    // To AXI Wrapper
-    .m_axis_data_tdata(s_axis_data_tdata),
-    .m_axis_data_tlast(s_axis_data_tlast),
-    .m_axis_data_tvalid(s_axis_data_tvalid),
-    .m_axis_data_tready(s_axis_data_tready),
-    .m_axis_data_tuser(s_axis_data_tuser),
-    // To User code
-    .o_tdata(sample_tdata),
-    .o_tlast(sample_tlast),
-    .o_tvalid(sample_tvalid),
-    .o_tready(sample_tready),
-    // From User code
-    .i_tdata(out_tdata),
-    .i_tlast(out_tlast),
-    .i_tvalid(out_tvalid),
-    .i_tready(out_tready),
-    .i_tkeep(out_tkeep));
 
   //A FIFO is used to store IQ samples which are currently being processed by FFT block
   //TODO: What size is best?!
@@ -1012,9 +949,9 @@ module noc_block_mrr_header #(
   localparam RB_DRAM4 = 5;
   localparam RB_CFO   = 6;
   localparam RB_VERSION = 7;
-  (* dont_touch="true",mark_debug="true"*) wire [20:0] local_readies = {i_tready, o_tready, cmdout_tready, ackin_tready, str_sink_tready, str_src_tready[1], str_src_tready[0], m_axis_data_tready, m_axis_config_tready, s_axis_data_tready, sample_tready_fft, sample_tready, sample_tready_iq, out_tready, sample_buff_tready, replay_sample_buff_tready, fft_data_o_tready, fft_mag_o_tready, out_decoded_tready, ackin_tready, fft_buff_o_tready};
-  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_valids  = {i_tvalid, o_tvalid, cmdout_tvalid, ackin_tvalid, str_sink_tvalid, str_src_tvalid[1], str_src_tvalid[0], m_axis_data_tvalid, m_axis_config_tvalid, s_axis_data_tvalid,     sample_tvalid, sample_tvalid,    sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, out_decoded_tvalid, ackin_tvalid, fft_buff_o_tvalid};
-  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_lasts  = {i_tlast, o_tlast, cmdout_tlast, ackin_tlast, str_sink_tlast, str_src_tlast[1], str_src_tlast[0], m_axis_data_tlast, 1'b0, s_axis_data_tlast, sample_tlast, out_tlast, sample_buff_tlast, fft_data_o_tlast, fft_mag_o_tlast, out_decoded_tlast, ackin_tlast, fft_buff_o_tlast};
+  (* dont_touch="true",mark_debug="true"*) wire [20:0] local_readies = {i_tready, o_tready, cmdout_tready, ackin_tready, str_src_tready[1], str_src_tready[0], sample_tready_fft, sample_tready, sample_tready_iq, out_tready, sample_buff_tready, replay_sample_buff_tready, fft_data_o_tready, fft_mag_o_tready, out_decoded_tready, ackin_tready, fft_buff_o_tready};
+  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_valids  = {i_tvalid, o_tvalid, cmdout_tvalid, ackin_tvalid, str_src_tvalid[1], str_src_tvalid[0], sample_tvalid, sample_tvalid,    sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, out_decoded_tvalid, ackin_tvalid, fft_buff_o_tvalid};
+  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_lasts  = {i_tlast, o_tlast, cmdout_tlast, ackin_tlast, str_src_tlast[1], str_src_tlast[0], 1'b0, sample_tlast, out_tlast, sample_buff_tlast, fft_data_o_tlast, fft_mag_o_tlast, out_decoded_tlast, ackin_tlast, fft_buff_o_tlast};
   wire [5:0] mrr_basic_readies, mrr_basic_valid;
   always @(*) begin
     case(rb_addr)
