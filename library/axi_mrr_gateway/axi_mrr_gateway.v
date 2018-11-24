@@ -23,6 +23,30 @@ module axi_mrr_gateway #(
   output          out_valid_q0,
   output  [15:0]  out_data_q0,
 
+  // axi interface
+
+  input                 s_axi_aclk,
+  input                 s_axi_aresetn,
+  input                 s_axi_awvalid,
+  input       [ 6:0]    s_axi_awaddr,
+  input       [ 2:0]    s_axi_awprot,
+  output                s_axi_awready,
+  input                 s_axi_wvalid,
+  input       [31:0]    s_axi_wdata,
+  input       [ 3:0]    s_axi_wstrb,
+  output                s_axi_wready,
+  output                s_axi_bvalid,
+  output      [ 1:0]    s_axi_bresp,
+  input                 s_axi_bready,
+  input                 s_axi_arvalid,
+  input       [ 6:0]    s_axi_araddr,
+  input       [ 2:0]    s_axi_arprot,
+  output                s_axi_arready,
+  output                s_axi_rvalid,
+  output      [31:0]    s_axi_rdata,
+  output      [ 1:0]    s_axi_rresp,
+  input                 s_axi_rready,
+
   //
   // AXI Memory Mapped Interface
   //
@@ -84,6 +108,54 @@ module axi_mrr_gateway #(
                              //Output Port 1: Decoded Soft Symbols
   `include "mrr_params.vh"
   `include "git_version.vh"
+
+  /////////////////////////////////////////////////////////////
+  //
+  // ADI Stuff...
+  //
+  ////////////////////////////////////////////////////////////
+  wire              up_clk;
+  wire              up_rstn;
+  wire    [ 4:0]    up_waddr;
+  wire    [31:0]    up_wdata;
+  wire              up_wack;
+  wire              up_wreq;
+  wire              up_rack;
+  wire    [31:0]    up_rdata;
+  wire              up_rreq;
+  wire    [ 4:0]    up_raddr;
+
+  up_axi #(
+    .AXI_ADDRESS_WIDTH(7),
+    .ADDRESS_WIDTH(5)
+  ) i_up_axi (
+    .up_rstn (up_rstn),
+    .up_clk (up_clk),
+    .up_axi_awvalid (s_axi_awvalid),
+    .up_axi_awaddr (s_axi_awaddr),
+    .up_axi_awready (s_axi_awready),
+    .up_axi_wvalid (s_axi_wvalid),
+    .up_axi_wdata (s_axi_wdata),
+    .up_axi_wstrb (s_axi_wstrb),
+    .up_axi_wready (s_axi_wready),
+    .up_axi_bvalid (s_axi_bvalid),
+    .up_axi_bresp (s_axi_bresp),
+    .up_axi_bready (s_axi_bready),
+    .up_axi_arvalid (s_axi_arvalid),
+    .up_axi_araddr (s_axi_araddr),
+    .up_axi_arready (s_axi_arready),
+    .up_axi_rvalid (s_axi_rvalid),
+    .up_axi_rresp (s_axi_rresp),
+    .up_axi_rdata (s_axi_rdata),
+    .up_axi_rready (s_axi_rready),
+    .up_wreq (up_wreq),
+    .up_waddr (up_waddr),
+    .up_wdata (up_wdata),
+    .up_wack (up_wack),
+    .up_rreq (up_rreq),
+    .up_raddr (up_raddr),
+    .up_rdata (up_rdata),
+    .up_rack (up_rack));
 
   wire [3:0] setting_primary_fft_len_decim_log2;
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_reorder_factor_mask;
@@ -153,11 +225,12 @@ module axi_mrr_gateway #(
     .clk(ce_clk),
     .reset(ce_rst),
     .clear(clear),
-    .i_tdata({adc_tlast,adc_i_in_latched,adc_q_in_latched}),
+    .i_tdata({adc_last,adc_i_in_latched,adc_q_in_latched}),
+    .i_tvalid(adc_valid),
     .i_tready(),
     .o_tdata({sample_tlast,sample_tdata}),
     .o_tvalid(sample_tvalid),
-    .o_tready(sample_trady),
+    .o_tready(sample_trady)
   );
 
   wire [31:0]    out_tdata;
@@ -949,9 +1022,9 @@ module axi_mrr_gateway #(
   localparam RB_DRAM4 = 5;
   localparam RB_CFO   = 6;
   localparam RB_VERSION = 7;
-  (* dont_touch="true",mark_debug="true"*) wire [20:0] local_readies = {i_tready, o_tready, cmdout_tready, ackin_tready, str_src_tready[1], str_src_tready[0], sample_tready_fft, sample_tready, sample_tready_iq, out_tready, sample_buff_tready, replay_sample_buff_tready, fft_data_o_tready, fft_mag_o_tready, out_decoded_tready, ackin_tready, fft_buff_o_tready};
-  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_valids  = {i_tvalid, o_tvalid, cmdout_tvalid, ackin_tvalid, str_src_tvalid[1], str_src_tvalid[0], sample_tvalid, sample_tvalid,    sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, out_decoded_tvalid, ackin_tvalid, fft_buff_o_tvalid};
-  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_lasts  = {i_tlast, o_tlast, cmdout_tlast, ackin_tlast, str_src_tlast[1], str_src_tlast[0], 1'b0, sample_tlast, out_tlast, sample_buff_tlast, fft_data_o_tlast, fft_mag_o_tlast, out_decoded_tlast, ackin_tlast, fft_buff_o_tlast};
+  (* dont_touch="true",mark_debug="true"*) wire [20:0] local_readies = {cmdout_tready, ackin_tready, str_src_tready[1], str_src_tready[0], sample_tready_fft, sample_tready, sample_tready_iq, out_tready, sample_buff_tready, replay_sample_buff_tready, fft_data_o_tready, fft_mag_o_tready, out_decoded_tready, ackin_tready, fft_buff_o_tready};
+  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_valids  = {cmdout_tvalid, ackin_tvalid, str_src_tvalid[1], str_src_tvalid[0], sample_tvalid, sample_tvalid,    sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, out_decoded_tvalid, ackin_tvalid, fft_buff_o_tvalid};
+  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_lasts  = {cmdout_tlast, ackin_tlast, str_src_tlast[1], str_src_tlast[0], 1'b0, sample_tlast, out_tlast, sample_buff_tlast, fft_data_o_tlast, fft_mag_o_tlast, out_decoded_tlast, ackin_tlast, fft_buff_o_tlast};
   wire [5:0] mrr_basic_readies, mrr_basic_valid;
   always @(*) begin
     case(rb_addr)

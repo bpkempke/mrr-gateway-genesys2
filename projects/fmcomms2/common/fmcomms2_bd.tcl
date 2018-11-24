@@ -90,12 +90,12 @@ ad_connect util_ad9361_divclk/clk_out util_ad9361_divclk_reset/slowest_sync_clk
 ad_ip_instance axi_mrr_gateway mrr_gateway
 ad_connect axi_ad9361/l_clk mrr_gateway/ce_clk
 ad_connect axi_ad9361/rst mrr_gateway/ce_rst
-ad_connect axi_ad9361/adc_enable_i0 mrr_gateway/din_enable_0
-ad_connect axi_ad9361/adc_valid_i0 mrr_gateway/din_valid_0
-ad_connect axi_ad9361/adc_data_i0 mrr_gateway/din_data_0
-ad_connect axi_ad9361/adc_enable_q0 mrr_gateway/din_enable_1
-ad_connect axi_ad9361/adc_valid_q0 mrr_gateway/din_valid_1
-ad_connect axi_ad9361/adc_data_q0 mrr_gateway/din_data_1
+ad_connect axi_ad9361/adc_enable_i0 mrr_gateway/adc_enable_i0
+ad_connect axi_ad9361/adc_valid_i0 mrr_gateway/adc_valid_i0
+ad_connect axi_ad9361/adc_data_i0 mrr_gateway/adc_data_i0
+ad_connect axi_ad9361/adc_enable_q0 mrr_gateway/adc_enable_q0
+ad_connect axi_ad9361/adc_valid_q0 mrr_gateway/adc_valid_q0
+ad_connect axi_ad9361/adc_data_q0 mrr_gateway/adc_data_q0
 
 # adc-path wfifo
 
@@ -228,6 +228,7 @@ ad_connect sys_cpu_resetn axi_ad9361_dac_dma/m_src_axi_aresetn
 ad_cpu_interconnect 0x79020000 axi_ad9361
 ad_cpu_interconnect 0x7C400000 axi_ad9361_adc_dma
 ad_cpu_interconnect 0x7C420000 axi_ad9361_dac_dma
+ad_cpu_interconnect 0x7C800000 mrr_gateway
 ad_mem_hp1_interconnect sys_cpu_clk sys_ps7/S_AXI_HP1
 ad_mem_hp1_interconnect sys_cpu_clk axi_ad9361_adc_dma/m_dest_axi
 ad_mem_hp2_interconnect sys_cpu_clk sys_ps7/S_AXI_HP2
