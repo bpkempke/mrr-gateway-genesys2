@@ -1022,9 +1022,12 @@ module axi_mrr_gateway #(
   localparam RB_DRAM4 = 5;
   localparam RB_CFO   = 6;
   localparam RB_VERSION = 7;
-  (* dont_touch="true",mark_debug="true"*) wire [20:0] local_readies = {cmdout_tready, ackin_tready, str_src_tready[1], str_src_tready[0], sample_tready_fft, sample_tready, sample_tready_iq, out_tready, sample_buff_tready, replay_sample_buff_tready, fft_data_o_tready, fft_mag_o_tready, out_decoded_tready, ackin_tready, fft_buff_o_tready};
-  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_valids  = {cmdout_tvalid, ackin_tvalid, str_src_tvalid[1], str_src_tvalid[0], sample_tvalid, sample_tvalid,    sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, out_decoded_tvalid, ackin_tvalid, fft_buff_o_tvalid};
-  (* dont_touch="true",mark_debug="true"*) wire [19:0] local_lasts  = {cmdout_tlast, ackin_tlast, str_src_tlast[1], str_src_tlast[0], 1'b0, sample_tlast, out_tlast, sample_buff_tlast, fft_data_o_tlast, fft_mag_o_tlast, out_decoded_tlast, ackin_tlast, fft_buff_o_tlast};
+//(* dont_touch="true",mark_debug="true"*) 
+//(* dont_touch="true",mark_debug="true"*) 
+//(* dont_touch="true",mark_debug="true"*) 
+  wire [20:0] local_readies = {cmdout_tready, ackin_tready, str_src_tready[1], str_src_tready[0], sample_tready_fft, sample_tready, sample_tready_iq, out_tready, sample_buff_tready, replay_sample_buff_tready, fft_data_o_tready, fft_mag_o_tready, out_decoded_tready, ackin_tready, fft_buff_o_tready};
+  wire [19:0] local_valids  = {cmdout_tvalid, ackin_tvalid, str_src_tvalid[1], str_src_tvalid[0], sample_tvalid, sample_tvalid,    sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, out_decoded_tvalid, ackin_tvalid, fft_buff_o_tvalid};
+  wire [19:0] local_lasts  = {cmdout_tlast, ackin_tlast, str_src_tlast[1], str_src_tlast[0], 1'b0, sample_tlast, out_tlast, sample_buff_tlast, fft_data_o_tlast, fft_mag_o_tlast, out_decoded_tlast, ackin_tlast, fft_buff_o_tlast};
   wire [5:0] mrr_basic_readies, mrr_basic_valid;
   always @(*) begin
     case(rb_addr)
