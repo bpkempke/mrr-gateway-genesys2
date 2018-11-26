@@ -47,6 +47,7 @@ generate_target {all} [get_files ip/fifo_short_2clk/fifo_short_2clk.xci]
 generate_target {all} [get_files ip/divide_uint32/divide_uint32.xci]
 
 adi_ip_properties axi_mrr_gateway
+adi_ip_infer_mm_interfaces axi_mrr_gateway
 
 ipx::infer_bus_interface ce_clk xilinx.com:signal:clock_rtl:1.0 [ipx::current_core]
 ipx::infer_bus_interface ce_rst xilinx.com:signal:reset_rtl:1.0 [ipx::current_core]

@@ -6,6 +6,7 @@ variable sys_hp0_interconnect_index
 variable sys_hp1_interconnect_index
 variable sys_hp2_interconnect_index
 variable sys_hp3_interconnect_index
+variable sys_hp4_interconnect_index
 variable sys_mem_interconnect_index
 
 variable xcvr_index
@@ -21,6 +22,7 @@ set sys_hp0_interconnect_index -1
 set sys_hp1_interconnect_index -1
 set sys_hp2_interconnect_index -1
 set sys_hp3_interconnect_index -1
+set sys_hp4_interconnect_index -1
 set sys_mem_interconnect_index -1
 
 set xcvr_index -1
@@ -377,6 +379,15 @@ proc ad_mem_hp3_interconnect {p_clk p_name} {
   if {$sys_zynq >= 1} {ad_mem_hpx_interconnect "HP3" $p_clk $p_name}
 }
 
+proc ad_mem_hp4_interconnect {p_clk p_name} {
+
+  global sys_zynq
+
+  if {($sys_zynq == 0) && ($p_name eq "sys_ps7/S_AXI_HP4")} {return}
+  if {$sys_zynq == 0} {ad_mem_hpx_interconnect "MEM" $p_clk $p_name}
+  if {$sys_zynq >= 1} {ad_mem_hpx_interconnect "HP4" $p_clk $p_name}
+}
+
 ###################################################################################################
 ###################################################################################################
 
@@ -388,6 +399,7 @@ proc ad_mem_hpx_interconnect {p_sel p_clk p_name} {
   global sys_hp1_interconnect_index
   global sys_hp2_interconnect_index
   global sys_hp3_interconnect_index
+  global sys_hp4_interconnect_index
   global sys_mem_interconnect_index
 
   set p_name_int $p_name
@@ -446,6 +458,17 @@ proc ad_mem_hpx_interconnect {p_sel p_clk p_name} {
     set m_addr_seg [get_bd_addr_segs sys_ps7/S_AXI_HP3/HP3_DDR_LOWOCM]
   }
 
+  if {($p_sel eq "HP4") && ($sys_zynq == 1)} {
+    if {$sys_hp4_interconnect_index < 0} {
+      set p_name_int sys_ps7/S_AXI_HP4
+      set_property CONFIG.PCW_USE_S_AXI_HP4 {1} [get_bd_cells sys_ps7]
+      ad_ip_instance axi_interconnect axi_hp4_interconnect
+    }
+    set m_interconnect_index $sys_hp4_interconnect_index
+    set m_interconnect_cell [get_bd_cells axi_hp4_interconnect]
+    set m_addr_seg [get_bd_addr_segs sys_ps7/S_AXI_HP4/HP4_DDR_LOWOCM]
+  }
+
   if {($p_sel eq "HP0") && ($sys_zynq == 2)} {
     if {$sys_hp0_interconnect_index < 0} {
       set p_name_int sys_ps8/S_AXI_HP0_FPD
@@ -488,6 +511,17 @@ proc ad_mem_hpx_interconnect {p_sel p_clk p_name} {
     set m_interconnect_index $sys_hp3_interconnect_index
     set m_interconnect_cell [get_bd_cells axi_hp3_interconnect]
     set m_addr_seg [get_bd_addr_segs sys_ps8/S_AXI_HP3_FPD/HP2_DDR_LOW]
+  }
+
+  if {($p_sel eq "HP4") && ($sys_zynq == 2)} {
+    if {$sys_hp4_interconnect_index < 0} {
+      set p_name_int sys_ps8/S_AXI_HP4_FPD
+      set_property CONFIG.PSU__USE__S_AXI_GP5 {1} [get_bd_cells sys_ps8]
+      ad_ip_instance axi_interconnect axi_hp4_interconnect
+    }
+    set m_interconnect_index $sys_hp4_interconnect_index
+    set m_interconnect_cell [get_bd_cells axi_hp4_interconnect]
+    set m_addr_seg [get_bd_addr_segs sys_ps8/S_AXI_HP4_FPD/HP2_DDR_LOW]
   }
 
   set i_str "S$m_interconnect_index"
@@ -543,6 +577,7 @@ proc ad_mem_hpx_interconnect {p_sel p_clk p_name} {
   if {$p_sel eq "HP1"} {set sys_hp1_interconnect_index $m_interconnect_index}
   if {$p_sel eq "HP2"} {set sys_hp2_interconnect_index $m_interconnect_index}
   if {$p_sel eq "HP3"} {set sys_hp3_interconnect_index $m_interconnect_index}
+  if {$p_sel eq "HP4"} {set sys_hp4_interconnect_index $m_interconnect_index}
 
 }
 

@@ -7,7 +7,6 @@ module axi_mrr_gateway #(
   parameter EXTENDED_DRAM_BIST = 1              //Prune out additional BIST features for production
 )(
   input ce_clk, input ce_rst,
-  input dram_clk, input dram_rst,
 
   input          adc_enable_i0,
   input          adc_valid_i0,
@@ -48,57 +47,114 @@ module axi_mrr_gateway #(
   input                 s_axi_rready,
 
   //
-  // AXI Memory Mapped Interface
+  // AXI Memory Mapped Interface 1
   //
   // -- AXI Write address channel
-  output [(NUM_FIFOS*1)-1:0]    m_axi_awid,     // Write address ID. This signal is the identification tag for the write address signals
-  output [(NUM_FIFOS*32)-1:0]   m_axi_awaddr,   // Write address. The write address gives the address of the first transfer in a write burst
-  output [(NUM_FIFOS*8)-1:0]    m_axi_awlen,    // Burst length. The burst length gives the exact number of transfers in a burst.
-  output [(NUM_FIFOS*3)-1:0]    m_axi_awsize,   // Burst size. This signal indicates the size of each transfer in the burst. 
-  output [(NUM_FIFOS*2)-1:0]    m_axi_awburst,  // Burst type. The burst type and the size information, determine how the address is calculated
-  output [(NUM_FIFOS*1)-1:0]    m_axi_awlock,   // Lock type. Provides additional information about the atomic characteristics of the transfer.
-  output [(NUM_FIFOS*4)-1:0]    m_axi_awcache,  // Memory type. This signal indicates how transactions are required to progress
-  output [(NUM_FIFOS*3)-1:0]    m_axi_awprot,   // Protection type. This signal indicates the privilege and security level of the transaction
-  output [(NUM_FIFOS*4)-1:0]    m_axi_awqos,    // Quality of Service, QoS. The QoS identifier sent for each write transaction
-  output [(NUM_FIFOS*4)-1:0]    m_axi_awregion, // Region identifier. Permits a single physical interface on a slave to be re-used.
-  output [(NUM_FIFOS*1)-1:0]    m_axi_awuser,   // User signal. Optional User-defined signal in the write address channel.
-  output [(NUM_FIFOS*1)-1:0]    m_axi_awvalid,  // Write address valid. This signal indicates that the channel is signaling valid write addr
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_awready,  // Write address ready. This signal indicates that the slave is ready to accept an address
+  input         m_axi_aclk,
+  input         m_axi_aresetn,
+  output        m_axi_awid,     // Write address ID. This signal is the identification tag for the write address signals
+  output [31:0] m_axi_awaddr,   // Write address. The write address gives the address of the first transfer in a write burst
+  output [7:0]  m_axi_awlen,    // Burst length. The burst length gives the exact number of transfers in a burst.
+  output [2:0]  m_axi_awsize,   // Burst size. This signal indicates the size of each transfer in the burst. 
+  output [1:0]  m_axi_awburst,  // Burst type. The burst type and the size information, determine how the address is calculated
+  output        m_axi_awlock,   // Lock type. Provides additional information about the atomic characteristics of the transfer.
+  output [3:0]  m_axi_awcache,  // Memory type. This signal indicates how transactions are required to progress
+  output [2:0]  m_axi_awprot,   // Protection type. This signal indicates the privilege and security level of the transaction
+  output [3:0]  m_axi_awqos,    // Quality of Service, QoS. The QoS identifier sent for each write transaction
+  output [3:0]  m_axi_awregion, // Region identifier. Permits a single physical interface on a slave to be re-used.
+  output        m_axi_awuser,   // User signal. Optional User-defined signal in the write address channel.
+  output        m_axi_awvalid,  // Write address valid. This signal indicates that the channel is signaling valid write addr
+  input         m_axi_awready,  // Write address ready. This signal indicates that the slave is ready to accept an address
   // -- AXI Write data channel.
-  output [(NUM_FIFOS*64)-1:0]   m_axi_wdata,    // Write data
-  output [(NUM_FIFOS*8)-1:0]    m_axi_wstrb,    // Write strobes. This signal indicates which byte lanes hold valid data.
-  output [(NUM_FIFOS*1)-1:0]    m_axi_wlast,    // Write last. This signal indicates the last transfer in a write burst
-  output [(NUM_FIFOS*1)-1:0]    m_axi_wuser,    // User signal. Optional User-defined signal in the write data channel.
-  output [(NUM_FIFOS*1)-1:0]    m_axi_wvalid,   // Write valid. This signal indicates that valid write data and strobes are available. 
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_wready,   // Write ready. This signal indicates that the slave can accept the write data.
+  output [63:0] m_axi_wdata,    // Write data
+  output [7:0]  m_axi_wstrb,    // Write strobes. This signal indicates which byte lanes hold valid data.
+  output        m_axi_wlast,    // Write last. This signal indicates the last transfer in a write burst
+  output        m_axi_wuser,    // User signal. Optional User-defined signal in the write data channel.
+  output        m_axi_wvalid,   // Write valid. This signal indicates that valid write data and strobes are available. 
+  input         m_axi_wready,   // Write ready. This signal indicates that the slave can accept the write data.
   // -- AXI Write response channel signals
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_bid,      // Response ID tag. This signal is the ID tag of the write response. 
-  input  [(NUM_FIFOS*2)-1:0]    m_axi_bresp,    // Write response. This signal indicates the status of the write transaction.
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_buser,    // User signal. Optional User-defined signal in the write response channel.
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_bvalid,   // Write response valid. This signal indicates that the channel is signaling a valid response
-  output [(NUM_FIFOS*1)-1:0]    m_axi_bready,   // Response ready. This signal indicates that the master can accept a write response
+  input         m_axi_bid,      // Response ID tag. This signal is the ID tag of the write response. 
+  input  [1:0]  m_axi_bresp,    // Write response. This signal indicates the status of the write transaction.
+  input         m_axi_buser,    // User signal. Optional User-defined signal in the write response channel.
+  input         m_axi_bvalid,   // Write response valid. This signal indicates that the channel is signaling a valid response
+  output        m_axi_bready,   // Response ready. This signal indicates that the master can accept a write response
   // -- AXI Read address channel
-  output [(NUM_FIFOS*1)-1:0]    m_axi_arid,     // Read address ID. This signal is the identification tag for the read address group of signals
-  output [(NUM_FIFOS*32)-1:0]   m_axi_araddr,   // Read address. The read address gives the address of the first transfer in a read burst
-  output [(NUM_FIFOS*8)-1:0]    m_axi_arlen,    // Burst length. This signal indicates the exact number of transfers in a burst.
-  output [(NUM_FIFOS*3)-1:0]    m_axi_arsize,   // Burst size. This signal indicates the size of each transfer in the burst.
-  output [(NUM_FIFOS*2)-1:0]    m_axi_arburst,  // Burst type. The burst type and the size information determine how the address for each transfer
-  output [(NUM_FIFOS*1)-1:0]    m_axi_arlock,   // Lock type. This signal provides additional information about the atomic characteristics
-  output [(NUM_FIFOS*4)-1:0]    m_axi_arcache,  // Memory type. This signal indicates how transactions are required to progress 
-  output [(NUM_FIFOS*3)-1:0]    m_axi_arprot,   // Protection type. This signal indicates the privilege and security level of the transaction
-  output [(NUM_FIFOS*4)-1:0]    m_axi_arqos,    // Quality of Service, QoS. QoS identifier sent for each read transaction.
-  output [(NUM_FIFOS*4)-1:0]    m_axi_arregion, // Region identifier. Permits a single physical interface on a slave to be re-used
-  output [(NUM_FIFOS*1)-1:0]    m_axi_aruser,   // User signal. Optional User-defined signal in the read address channel.
-  output [(NUM_FIFOS*1)-1:0]    m_axi_arvalid,  // Read address valid. This signal indicates that the channel is signaling valid read addr
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_arready,  // Read address ready. This signal indicates that the slave is ready to accept an address
+  output        m_axi_arid,     // Read address ID. This signal is the identification tag for the read address group of signals
+  output [31:0] m_axi_araddr,   // Read address. The read address gives the address of the first transfer in a read burst
+  output [7:0]  m_axi_arlen,    // Burst length. This signal indicates the exact number of transfers in a burst.
+  output [2:0]  m_axi_arsize,   // Burst size. This signal indicates the size of each transfer in the burst.
+  output [1:0]  m_axi_arburst,  // Burst type. The burst type and the size information determine how the address for each transfer
+  output        m_axi_arlock,   // Lock type. This signal provides additional information about the atomic characteristics
+  output [3:0]  m_axi_arcache,  // Memory type. This signal indicates how transactions are required to progress 
+  output [2:0]  m_axi_arprot,   // Protection type. This signal indicates the privilege and security level of the transaction
+  output [3:0]  m_axi_arqos,    // Quality of Service, QoS. QoS identifier sent for each read transaction.
+  output [3:0]  m_axi_arregion, // Region identifier. Permits a single physical interface on a slave to be re-used
+  output        m_axi_aruser,   // User signal. Optional User-defined signal in the read address channel.
+  output        m_axi_arvalid,  // Read address valid. This signal indicates that the channel is signaling valid read addr
+  input         m_axi_arready,  // Read address ready. This signal indicates that the slave is ready to accept an address
   // -- AXI Read data channel
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_rid,      // Read ID tag. This signal is the identification tag for the read data group of signals
-  input  [(NUM_FIFOS*64)-1:0]   m_axi_rdata,    // Read data.
-  input  [(NUM_FIFOS*2)-1:0]    m_axi_rresp,    // Read response. This signal indicates the status of the read transfer
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_rlast,    // Read last. This signal indicates the last transfer in a read burst.
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_ruser,    // User signal. Optional User-defined signal in the read data channel.
-  input  [(NUM_FIFOS*1)-1:0]    m_axi_rvalid,   // Read valid. This signal indicates that the channel is signaling the required read data. 
-  output [(NUM_FIFOS*1)-1:0]    m_axi_rready,   // Read ready. This signal indicates that the master can accept the read data and response
+  input         m_axi_rid,      // Read ID tag. This signal is the identification tag for the read data group of signals
+  input  [63:0] m_axi_rdata,    // Read data.
+  input  [1:0]  m_axi_rresp,    // Read response. This signal indicates the status of the read transfer
+  input         m_axi_rlast,    // Read last. This signal indicates the last transfer in a read burst.
+  input         m_axi_ruser,    // User signal. Optional User-defined signal in the read data channel.
+  input         m_axi_rvalid,   // Read valid. This signal indicates that the channel is signaling the required read data. 
+  output        m_axi_rready,   // Read ready. This signal indicates that the master can accept the read data and response
+
+  //
+  // AXI Memory Mapped Interface 2
+  //
+  // -- AXI Write address channel
+  input         m_axi2_aclk,
+  input         m_axi2_aresetn,
+  output        m_axi2_awid,     // Write address ID. This signal is the identification tag for the write address signals
+  output [31:0] m_axi2_awaddr,   // Write address. The write address gives the address of the first transfer in a write burst
+  output [7:0]  m_axi2_awlen,    // Burst length. The burst length gives the exact number of transfers in a burst.
+  output [2:0]  m_axi2_awsize,   // Burst size. This signal indicates the size of each transfer in the burst. 
+  output [1:0]  m_axi2_awburst,  // Burst type. The burst type and the size information, determine how the address is calculated
+  output        m_axi2_awlock,   // Lock type. Provides additional information about the atomic characteristics of the transfer.
+  output [3:0]  m_axi2_awcache,  // Memory type. This signal indicates how transactions are required to progress
+  output [2:0]  m_axi2_awprot,   // Protection type. This signal indicates the privilege and security level of the transaction
+  output [3:0]  m_axi2_awqos,    // Quality of Service, QoS. The QoS identifier sent for each write transaction
+  output [3:0]  m_axi2_awregion, // Region identifier. Permits a single physical interface on a slave to be re-used.
+  output        m_axi2_awuser,   // User signal. Optional User-defined signal in the write address channel.
+  output        m_axi2_awvalid,  // Write address valid. This signal indicates that the channel is signaling valid write addr
+  input         m_axi2_awready,  // Write address ready. This signal indicates that the slave is ready to accept an address
+  // -- AXI Write data channel.
+  output [63:0] m_axi2_wdata,    // Write data
+  output [7:0]  m_axi2_wstrb,    // Write strobes. This signal indicates which byte lanes hold valid data.
+  output        m_axi2_wlast,    // Write last. This signal indicates the last transfer in a write burst
+  output        m_axi2_wuser,    // User signal. Optional User-defined signal in the write data channel.
+  output        m_axi2_wvalid,   // Write valid. This signal indicates that valid write data and strobes are available. 
+  input         m_axi2_wready,   // Write ready. This signal indicates that the slave can accept the write data.
+  // -- AXI Write response channel signals
+  input         m_axi2_bid,      // Response ID tag. This signal is the ID tag of the write response. 
+  input  [1:0]  m_axi2_bresp,    // Write response. This signal indicates the status of the write transaction.
+  input         m_axi2_buser,    // User signal. Optional User-defined signal in the write response channel.
+  input         m_axi2_bvalid,   // Write response valid. This signal indicates that the channel is signaling a valid response
+  output        m_axi2_bready,   // Response ready. This signal indicates that the master can accept a write response
+  // -- AXI Read address channel
+  output        m_axi2_arid,     // Read address ID. This signal is the identification tag for the read address group of signals
+  output [31:0] m_axi2_araddr,   // Read address. The read address gives the address of the first transfer in a read burst
+  output [7:0]  m_axi2_arlen,    // Burst length. This signal indicates the exact number of transfers in a burst.
+  output [2:0]  m_axi2_arsize,   // Burst size. This signal indicates the size of each transfer in the burst.
+  output [1:0]  m_axi2_arburst,  // Burst type. The burst type and the size information determine how the address for each transfer
+  output        m_axi2_arlock,   // Lock type. This signal provides additional information about the atomic characteristics
+  output [3:0]  m_axi2_arcache,  // Memory type. This signal indicates how transactions are required to progress 
+  output [2:0]  m_axi2_arprot,   // Protection type. This signal indicates the privilege and security level of the transaction
+  output [3:0]  m_axi2_arqos,    // Quality of Service, QoS. QoS identifier sent for each read transaction.
+  output [3:0]  m_axi2_arregion, // Region identifier. Permits a single physical interface on a slave to be re-used
+  output        m_axi2_aruser,   // User signal. Optional User-defined signal in the read address channel.
+  output        m_axi2_arvalid,  // Read address valid. This signal indicates that the channel is signaling valid read addr
+  input         m_axi2_arready,  // Read address ready. This signal indicates that the slave is ready to accept an address
+  // -- AXI Read data channel
+  input         m_axi2_rid,      // Read ID tag. This signal is the identification tag for the read data group of signals
+  input  [63:0] m_axi2_rdata,    // Read data.
+  input  [1:0]  m_axi2_rresp,    // Read response. This signal indicates the status of the read transfer
+  input         m_axi2_rlast,    // Read last. This signal indicates the last transfer in a read burst.
+  input         m_axi2_ruser,    // User signal. Optional User-defined signal in the read data channel.
+  input         m_axi2_rvalid,   // Read valid. This signal indicates that the channel is signaling the required read data. 
+  output        m_axi2_rready,   // Read ready. This signal indicates that the master can accept the read data and response
 
   output [63:0] debug
 );
@@ -436,66 +492,66 @@ module axi_mrr_gateway #(
         // Clocks and reset
         //
         .bus_clk(ce_clk), .bus_reset(ce_rst | clear),
-        .dram_clk(dram_clk), .dram_reset(dram_rst),
+        .dram_clk(m_axi_aclk), .dram_reset(~m_axi_aresetn),
         //
         // AXI Write address channel
         //
-        .m_axi_awid     (m_axi_awid[i]),
-        .m_axi_awaddr   (m_axi_awaddr[(32*(i+1))-1:32*i]),
-        .m_axi_awlen    (m_axi_awlen[(8*(i+1))-1:8*i]),
-        .m_axi_awsize   (m_axi_awsize[(3*(i+1))-1:3*i]),
-        .m_axi_awburst  (m_axi_awburst[(2*(i+1))-1:2*i]),
-        .m_axi_awlock   (m_axi_awlock[i]),
-        .m_axi_awcache  (m_axi_awcache[(4*(i+1))-1:4*i]),
-        .m_axi_awprot   (m_axi_awprot[(3*(i+1))-1:3*i]),
-        .m_axi_awqos    (m_axi_awqos[(4*(i+1))-1:4*i]),
-        .m_axi_awregion (m_axi_awregion[(4*(i+1))-1:4*i]),
-        .m_axi_awuser   (m_axi_awuser[i]),
-        .m_axi_awvalid  (m_axi_awvalid[i]),
-        .m_axi_awready  (m_axi_awready[i]),
+        .m_axi_awid     (m_axi_awid),
+        .m_axi_awaddr   (m_axi_awaddr),
+        .m_axi_awlen    (m_axi_awlen),
+        .m_axi_awsize   (m_axi_awsize),
+        .m_axi_awburst  (m_axi_awburst),
+        .m_axi_awlock   (m_axi_awlock),
+        .m_axi_awcache  (m_axi_awcache),
+        .m_axi_awprot   (m_axi_awprot),
+        .m_axi_awqos    (m_axi_awqos),
+        .m_axi_awregion (m_axi_awregion),
+        .m_axi_awuser   (m_axi_awuser),
+        .m_axi_awvalid  (m_axi_awvalid),
+        .m_axi_awready  (m_axi_awready),
         //
         // AXI Write data channel.
         //
-        .m_axi_wdata    (m_axi_wdata[(64*(i+1))-1:64*i]),
-        .m_axi_wstrb    (m_axi_wstrb[(8*(i+1))-1:8*i]),
-        .m_axi_wlast    (m_axi_wlast[i]),
-        .m_axi_wuser    (m_axi_wuser[i]),
-        .m_axi_wvalid   (m_axi_wvalid[i]),
-        .m_axi_wready   (m_axi_wready[i]),
+        .m_axi_wdata    (m_axi_wdata),
+        .m_axi_wstrb    (m_axi_wstrb),
+        .m_axi_wlast    (m_axi_wlast),
+        .m_axi_wuser    (m_axi_wuser),
+        .m_axi_wvalid   (m_axi_wvalid),
+        .m_axi_wready   (m_axi_wready),
         //
         // AXI Write response channel signals
         //
-        .m_axi_bid      (m_axi_bid[i]),
-        .m_axi_bresp    (m_axi_bresp[(2*(i+1))-1:2*i]),
-        .m_axi_buser    (m_axi_buser[i]),
-        .m_axi_bvalid   (m_axi_bvalid[i]),
-        .m_axi_bready   (m_axi_bready[i]),
+        .m_axi_bid      (m_axi_bid),
+        .m_axi_bresp    (m_axi_bresp),
+        .m_axi_buser    (m_axi_buser),
+        .m_axi_bvalid   (m_axi_bvalid),
+        .m_axi_bready   (m_axi_bready),
         //
         // AXI Read address channel
         //
-        .m_axi_arid     (m_axi_arid[i]),
-        .m_axi_araddr   (m_axi_araddr[(32*(i+1))-1:32*i]),
-        .m_axi_arlen    (m_axi_arlen[(8*(i+1))-1:8*i]),
-        .m_axi_arsize   (m_axi_arsize[(3*(i+1))-1:3*i]),
-        .m_axi_arburst  (m_axi_arburst[(2*(i+1))-1:2*i]),
-        .m_axi_arlock   (m_axi_arlock[i]),
-        .m_axi_arcache  (m_axi_arcache[(4*(i+1))-1:4*i]),
-        .m_axi_arprot   (m_axi_arprot[(3*(i+1))-1:3*i]),
-        .m_axi_arqos    (m_axi_arqos[(4*(i+1))-1:4*i]),
-        .m_axi_arregion (m_axi_arregion[(4*(i+1))-1:4*i]),
-        .m_axi_aruser   (m_axi_aruser[i]),
-        .m_axi_arvalid  (m_axi_arvalid[i]),
-        .m_axi_arready  (m_axi_arready[i]),
+        .m_axi_arid     (m_axi_arid),
+        .m_axi_araddr   (m_axi_araddr),
+        .m_axi_arlen    (m_axi_arlen),
+        .m_axi_arsize   (m_axi_arsize),
+        .m_axi_arburst  (m_axi_arburst),
+        .m_axi_arlock   (m_axi_arlock),
+        .m_axi_arcache  (m_axi_arcache),
+        .m_axi_arprot   (m_axi_arprot),
+        .m_axi_arqos    (m_axi_arqos),
+        .m_axi_arregion (m_axi_arregion),
+        .m_axi_aruser   (m_axi_aruser),
+        .m_axi_arvalid  (m_axi_arvalid),
+        .m_axi_arready  (m_axi_arready),
         //
         // AXI Read data channel
         //
-        .m_axi_rid      (m_axi_rid[i]),
-        .m_axi_rdata    (m_axi_rdata[(64*(i+1))-1:64*i]),
-        .m_axi_rresp    (m_axi_rresp[(2*(i+1))-1:2*i]),
-        .m_axi_rlast    (m_axi_rlast[i]),
-        .m_axi_ruser    (m_axi_ruser[i]),
-        .m_axi_rvalid   (m_axi_rvalid[i]),
-        .m_axi_rready   (m_axi_rready[i]),
+        .m_axi_rid      (m_axi_rid),
+        .m_axi_rdata    (m_axi_rdata),
+        .m_axi_rresp    (m_axi_rresp),
+        .m_axi_rlast    (m_axi_rlast),
+        .m_axi_ruser    (m_axi_ruser),
+        .m_axi_rvalid   (m_axi_rvalid),
+        .m_axi_rready   (m_axi_rready),
         //
         // CHDR friendly AXI stream input
         //
@@ -615,66 +671,66 @@ module axi_mrr_gateway #(
         // Clocks and reset
         //
         .bus_clk(ce_clk), .bus_reset(ce_rst | clear),
-        .dram_clk(dram_clk), .dram_reset(dram_rst),
+        .dram_clk(m_axi2_aclk), .dram_reset(~m_axi2_aresetn),
         //
         // AXI Write address channel
         //
-        .m_axi_awid     (m_axi_awid[j]),
-        .m_axi_awaddr   (m_axi_awaddr[(32*(j+1))-1:32*j]),
-        .m_axi_awlen    (m_axi_awlen[(8*(j+1))-1:8*j]),
-        .m_axi_awsize   (m_axi_awsize[(3*(j+1))-1:3*j]),
-        .m_axi_awburst  (m_axi_awburst[(2*(j+1))-1:2*j]),
-        .m_axi_awlock   (m_axi_awlock[j]),
-        .m_axi_awcache  (m_axi_awcache[(4*(j+1))-1:4*j]),
-        .m_axi_awprot   (m_axi_awprot[(3*(j+1))-1:3*j]),
-        .m_axi_awqos    (m_axi_awqos[(4*(j+1))-1:4*j]),
-        .m_axi_awregion (m_axi_awregion[(4*(j+1))-1:4*j]),
-        .m_axi_awuser   (m_axi_awuser[j]),
-        .m_axi_awvalid  (m_axi_awvalid[j]),
-        .m_axi_awready  (m_axi_awready[j]),
+        .m_axi_awid     (m_axi2_awid),
+        .m_axi_awaddr   (m_axi2_awaddr),
+        .m_axi_awlen    (m_axi2_awlen),
+        .m_axi_awsize   (m_axi2_awsize),
+        .m_axi_awburst  (m_axi2_awburst),
+        .m_axi_awlock   (m_axi2_awlock),
+        .m_axi_awcache  (m_axi2_awcache),
+        .m_axi_awprot   (m_axi2_awprot),
+        .m_axi_awqos    (m_axi2_awqos),
+        .m_axi_awregion (m_axi2_awregion),
+        .m_axi_awuser   (m_axi2_awuser),
+        .m_axi_awvalid  (m_axi2_awvalid),
+        .m_axi_awready  (m_axi2_awready),
         //
         // AXI Write data channel.
         //
-        .m_axi_wdata    (m_axi_wdata[(64*(j+1))-1:64*j]),
-        .m_axi_wstrb    (m_axi_wstrb[(8*(j+1))-1:8*j]),
-        .m_axi_wlast    (m_axi_wlast[j]),
-        .m_axi_wuser    (m_axi_wuser[j]),
-        .m_axi_wvalid   (m_axi_wvalid[j]),
-        .m_axi_wready   (m_axi_wready[j]),
+        .m_axi_wdata    (m_axi2_wdata),
+        .m_axi_wstrb    (m_axi2_wstrb),
+        .m_axi_wlast    (m_axi2_wlast),
+        .m_axi_wuser    (m_axi2_wuser),
+        .m_axi_wvalid   (m_axi2_wvalid),
+        .m_axi_wready   (m_axi2_wready),
         //
         // AXI Write response channel signals
         //
-        .m_axi_bid      (m_axi_bid[j]),
-        .m_axi_bresp    (m_axi_bresp[(2*(j+1))-1:2*j]),
-        .m_axi_buser    (m_axi_buser[j]),
-        .m_axi_bvalid   (m_axi_bvalid[j]),
-        .m_axi_bready   (m_axi_bready[j]),
+        .m_axi_bid      (m_axi2_bid),
+        .m_axi_bresp    (m_axi2_bresp),
+        .m_axi_buser    (m_axi2_buser),
+        .m_axi_bvalid   (m_axi2_bvalid),
+        .m_axi_bready   (m_axi2_bready),
         //
         // AXI Read address channel
         //
-        .m_axi_arid     (m_axi_arid[j]),
-        .m_axi_araddr   (m_axi_araddr[(32*(j+1))-1:32*j]),
-        .m_axi_arlen    (m_axi_arlen[(8*(j+1))-1:8*j]),
-        .m_axi_arsize   (m_axi_arsize[(3*(j+1))-1:3*j]),
-        .m_axi_arburst  (m_axi_arburst[(2*(j+1))-1:2*j]),
-        .m_axi_arlock   (m_axi_arlock[j]),
-        .m_axi_arcache  (m_axi_arcache[(4*(j+1))-1:4*j]),
-        .m_axi_arprot   (m_axi_arprot[(3*(j+1))-1:3*j]),
-        .m_axi_arqos    (m_axi_arqos[(4*(j+1))-1:4*j]),
-        .m_axi_arregion (m_axi_arregion[(4*(j+1))-1:4*j]),
-        .m_axi_aruser   (m_axi_aruser[j]),
-        .m_axi_arvalid  (m_axi_arvalid[j]),
-        .m_axi_arready  (m_axi_arready[j]),
+        .m_axi_arid     (m_axi2_arid),
+        .m_axi_araddr   (m_axi2_araddr),
+        .m_axi_arlen    (m_axi2_arlen),
+        .m_axi_arsize   (m_axi2_arsize),
+        .m_axi_arburst  (m_axi2_arburst),
+        .m_axi_arlock   (m_axi2_arlock),
+        .m_axi_arcache  (m_axi2_arcache),
+        .m_axi_arprot   (m_axi2_arprot),
+        .m_axi_arqos    (m_axi2_arqos),
+        .m_axi_arregion (m_axi2_arregion),
+        .m_axi_aruser   (m_axi2_aruser),
+        .m_axi_arvalid  (m_axi2_arvalid),
+        .m_axi_arready  (m_axi2_arready),
         //
         // AXI Read data channel
         //
-        .m_axi_rid      (m_axi_rid[j]),
-        .m_axi_rdata    (m_axi_rdata[(64*(j+1))-1:64*j]),
-        .m_axi_rresp    (m_axi_rresp[(2*(j+1))-1:2*j]),
-        .m_axi_rlast    (m_axi_rlast[j]),
-        .m_axi_ruser    (m_axi_ruser[j]),
-        .m_axi_rvalid   (m_axi_rvalid[j]),
-        .m_axi_rready   (m_axi_rready[j]),
+        .m_axi_rid      (m_axi2_rid),
+        .m_axi_rdata    (m_axi2_rdata),
+        .m_axi_rresp    (m_axi2_rresp),
+        .m_axi_rlast    (m_axi2_rlast),
+        .m_axi_ruser    (m_axi2_ruser),
+        .m_axi_rvalid   (m_axi2_rvalid),
+        .m_axi_rready   (m_axi2_rready),
         //
         // CHDR friendly AXI stream input
         //
