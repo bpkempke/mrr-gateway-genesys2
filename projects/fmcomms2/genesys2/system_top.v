@@ -155,11 +155,12 @@ module system_top (
 
   system_wrapper i_system_wrapper (
     //.phy_rst_n (phy_rst_n),
-    .qspi_flash_io0_io (qspi_flash_io0_io),
-    .qspi_flash_io1_io (qspi_flash_io1_io),
-    .qspi_flash_io2_io (qspi_flash_io2_io),
-    .qspi_flash_io3_io (qspi_flash_io3_io),
-    .qspi_flash_ss_io (qspi_flash_ss_io),
+    //TODO: PUT BACK IN
+    //.qspi_flash_io0_io (qspi_flash_io0_io),
+    //.qspi_flash_io1_io (qspi_flash_io1_io),
+    //.qspi_flash_io2_io (qspi_flash_io2_io),
+    //.qspi_flash_io3_io (qspi_flash_io3_io),
+    //.qspi_flash_ss_io (qspi_flash_ss_io),
     //.rgmii_rd (rgmii_rd),
     //.rgmii_rx_ctl (rgmii_rx_ctl),
     //.rgmii_rxc (rgmii_rxc),
@@ -221,7 +222,8 @@ module system_top (
     .uart_sout (uart_sout),
     .enable (enable),
     .txnrx (txnrx),
-    .up_enable (gpio_o[47]),
+    //TODO: PUT BACK IN
+    .up_enable (1'b1),//gpio_o[47]),
     .up_txnrx (gpio_o[48]));
 
 endmodule

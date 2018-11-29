@@ -88,7 +88,7 @@ ad_connect util_ad9361_divclk/clk_out util_ad9361_divclk_reset/slowest_sync_clk
 # MRR gateway
 
 ad_ip_instance axi_mrr_gateway mrr_gateway
-ad_connect axi_ad9361/l_clk mrr_gateway/ce_clk
+ad_connect axi_ddr_cntrl/ui_addn_clk_0 mrr_gateway/ce_clk
 ad_connect axi_ad9361/rst mrr_gateway/ce_rst
 ad_connect axi_ad9361/adc_enable_i0 mrr_gateway/adc_enable_i0
 ad_connect axi_ad9361/adc_valid_i0 mrr_gateway/adc_valid_i0
@@ -96,6 +96,7 @@ ad_connect axi_ad9361/adc_data_i0 mrr_gateway/adc_data_i0
 ad_connect axi_ad9361/adc_enable_q0 mrr_gateway/adc_enable_q0
 ad_connect axi_ad9361/adc_valid_q0 mrr_gateway/adc_valid_q0
 ad_connect axi_ad9361/adc_data_q0 mrr_gateway/adc_data_q0
+ad_connect axi_ad9361/l_clk mrr_gateway/adc_clk
 
 # adc-path wfifo
 

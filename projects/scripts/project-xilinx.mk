@@ -49,6 +49,12 @@ clean-all: clean
 		$(MAKE) -C $(HDL_LIBRARY_PATH)$${lib} clean; \
 	done
 
+xsim:
+	$(call build, \
+		$(VIVADO) system_project_sim.tcl, \
+		$(PROJECT_NAME)_vivado_sim.log, \
+		$(HL)$(PROJECT_NAME)$(NC) project)
+
 $(PROJECT_NAME).sdk/system_top.hdf: $(M_DEPS)
 	-rm -rf $(CLEAN_TARGET)
 	$(call build, \

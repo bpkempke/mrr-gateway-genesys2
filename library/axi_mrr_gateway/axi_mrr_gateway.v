@@ -8,6 +8,7 @@ module axi_mrr_gateway #(
 )(
   input ce_clk, input ce_rst,
 
+  input          adc_clk,
   input          adc_enable_i0,
   input          adc_valid_i0,
   input  [15:0]  adc_data_i0,
@@ -256,7 +257,7 @@ module axi_mrr_gateway #(
   reg [15:0] adc_q_in_latched;
   reg [9:0] input_sample_counter;
 
-  always @(posedge ce_clk) begin
+  always @(posedge adc_clk) begin
     if(ce_rst) begin
       input_sample_counter <= 0;
       adc_valid <= 1'b0;
@@ -277,16 +278,21 @@ module axi_mrr_gateway #(
     end
   end
 
-  axi_fifo #(.WIDTH(33), .SIZE(10)) input_samples_fifo (
-    .clk(ce_clk),
-    .reset(ce_rst),
-    .clear(clear),
-    .i_tdata({adc_last,adc_i_in_latched,adc_q_in_latched}),
-    .i_tvalid(adc_valid),
-    .i_tready(),
-    .o_tdata({sample_tlast,sample_tdata}),
-    .o_tvalid(sample_tvalid),
-    .o_tready(sample_trady)
+  wire sample_fifo_empty;
+  wire [38:0] fifo_unused;
+  assign sample_tvalid = ~sample_fifo_empty;
+  fifo_short_2clk input_samples_fifo (
+    .rst(ce_rst),
+    .wr_clk(adc_clk),
+    .din({39'd0,adc_last,adc_i_in_latched,adc_q_in_latched}),
+    .wr_en(adc_valid),
+    .full(),
+    .wr_data_count(),
+    .rd_clk(ce_clk),
+    .dout({fifo_unused,sample_tlast,sample_tdata}),
+    .rd_en(sample_tready),
+    .empty(sample_fifo_empty),
+    .rd_data_count()
   );
 
   wire [31:0]    out_tdata;
@@ -832,7 +838,7 @@ module axi_mrr_gateway #(
   localparam SR_CORR_WAIT_LEN = 164;
 
   setting_reg #(
-      .my_addr(SR_TURN_TICKS), .awidth(8), .width(32))
+      .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
   sr_turnaround_ticks (
       .clk(ce_clk), .rst(ce_rst),
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(turnaround_ticks), .changed());
@@ -840,7 +846,7 @@ module axi_mrr_gateway #(
   wire [CORR_WIDTH-1:0] threshold;
 
   setting_reg #(
-    .my_addr(SR_THRE), .awidth(8), .width(CORR_WIDTH))
+    .my_addr(SR_THRE), .awidth(8), .width(CORR_WIDTH), .at_reset(2500))
   sr_thre (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(threshold), .changed());
@@ -848,7 +854,7 @@ module axi_mrr_gateway #(
   wire [7:0] num_payload_bits;
 
   setting_reg #(
-    .my_addr(SR_NUM_BITS), .awidth(8), .width(8))
+    .my_addr(SR_NUM_BITS), .awidth(8), .width(8), .at_reset(180))
   sr_num_bits (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(num_payload_bits), .changed());
@@ -856,7 +862,7 @@ module axi_mrr_gateway #(
  wire tx_disable;
 
   setting_reg #(
-    .my_addr(SR_TX_DISABLE), .awidth(8), .width(1))
+    .my_addr(SR_TX_DISABLE), .awidth(8), .width(1), .at_reset(1))
   sr_tx_disable (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(tx_disable), .changed());
@@ -864,34 +870,34 @@ module axi_mrr_gateway #(
  wire [15:0] wait_step;
 
   setting_reg #(
-    .my_addr(SR_WAIT_STEP), .awidth(8), .width(16))
+    .my_addr(SR_WAIT_STEP), .awidth(8), .width(16), .at_reset(4))
   sr_wait_step (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(wait_step), .changed());
 
   setting_reg #(
-      .my_addr(SR_TICK_RATE), .awidth(8), .width(32))
+      .my_addr(SR_TICK_RATE), .awidth(8), .width(32), .at_reset(10))
   sr_tick_rate (
       .clk(ce_clk), .rst(ce_rst),
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(tick_rate), .changed());
 
   wire [31:0] tx_word;
   setting_reg #(
-      .my_addr(SR_TX_WORD), .awidth(8), .width(32))
+      .my_addr(SR_TX_WORD), .awidth(8), .width(32), .at_reset(0))
   sr_tx_word (
       .clk(ce_clk), .rst(ce_rst),
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(tx_word), .changed());
 
   wire [7:0] max_jitter;
   setting_reg #(
-      .my_addr(SR_MAX_JITTER), .awidth(8), .width(8))
+      .my_addr(SR_MAX_JITTER), .awidth(8), .width(8), .at_reset(4))
   sr_max_jitter (
       .clk(ce_clk), .rst(ce_rst),
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(max_jitter), .changed());
 
   wire [14:0] recharge_len;
   setting_reg #(
-      .my_addr(SR_RECHARGE_LEN), .awidth(8), .width(15))
+      .my_addr(SR_RECHARGE_LEN), .awidth(8), .width(15), .at_reset(6))
   sr_recharge_len (
       .clk(ce_clk), .rst(ce_rst),
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(recharge_len), .changed());
@@ -899,7 +905,7 @@ module axi_mrr_gateway #(
   wire [3:0] mf_num_accum;
   wire mf_num_accum_changed;
   setting_reg #(
-      .my_addr(SR_MF_NUM_ACCUM), .awidth(8), .width(4))
+      .my_addr(SR_MF_NUM_ACCUM), .awidth(8), .width(4), .at_reset(10))
   sr_mf_num_accum (
       .clk(ce_clk), .rst(ce_rst),
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(mf_num_accum), .changed(mf_num_accum_changed));
@@ -907,7 +913,7 @@ module axi_mrr_gateway #(
   wire [7:0] mf_accum_len;
   wire mf_accum_len_changed;
   setting_reg #(
-      .my_addr(SR_MF_ACCUM_LEN), .awidth(8), .width(8))
+      .my_addr(SR_MF_ACCUM_LEN), .awidth(8), .width(8), .at_reset(6))
   sr_mf_accum_len (
       .clk(ce_clk), .rst(ce_rst),
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(mf_accum_len), .changed(mf_accum_len_changed));
@@ -917,21 +923,21 @@ module axi_mrr_gateway #(
   wire [31:0] primary_fft_mask_temp;
   wire primary_fft_mask_shift;
   setting_reg #(
-      .my_addr(SR_PRIMARY_FFT_MASK), .awidth(8), .width(32))
+      .my_addr(SR_PRIMARY_FFT_MASK), .awidth(8), .width(32), .at_reset(32'hFFFFFFFF))
   sr_pfm (
       .clk(ce_clk), .rst(ce_rst),
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(primary_fft_mask_temp), .changed(primary_fft_mask_shift));
 
 
   setting_reg #(
-    .my_addr(SR_PAUSE_BLOCK), .awidth(8), .width(1), .at_reset(1))
+    .my_addr(SR_PAUSE_BLOCK), .awidth(8), .width(1), .at_reset(0))
   sr_pause_block (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(pause_block), .changed());
 
   wire [NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
   setting_reg #(
-      .my_addr(SR_NUM_HARMONICS), .awidth(8), .width(NUM_HARMONICS))
+      .my_addr(SR_NUM_HARMONICS), .awidth(8), .width(NUM_HARMONICS), .at_reset(7))
   sr_num_harmonics (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_num_harmonics), .changed());
@@ -976,7 +982,7 @@ module axi_mrr_gateway #(
     .mask_out(setting_primary_fft_len_mask)
   );
   setting_reg #(
-      .my_addr(SR_PRIMARY_FFT_LEN_LOG2), .awidth(8), .width(4))
+      .my_addr(SR_PRIMARY_FFT_LEN_LOG2), .awidth(8), .width(4), .at_reset(10))
   sr_primary_fft_len (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_primary_fft_len_log2), .changed(setting_primary_fft_len_log2_changed));
@@ -995,7 +1001,7 @@ module axi_mrr_gateway #(
     .mask_out(setting_reorder_factor_mask)
   );
   setting_reg #(
-      .my_addr(SR_PRIMARY_FFT_LEN_DECIM_LOG2), .awidth(8), .width(4))
+      .my_addr(SR_PRIMARY_FFT_LEN_DECIM_LOG2), .awidth(8), .width(4), .at_reset(6))
   sr_primary_fft_len_decim (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_primary_fft_len_decim_log2), .changed());
@@ -1009,7 +1015,7 @@ module axi_mrr_gateway #(
     .mask_out(setting_secondary_fft_len_mask)
   );
   setting_reg #(
-      .my_addr(SR_SECONDARY_FFT_LEN_LOG2), .awidth(8), .width(SECONDARY_FFT_MAX_LEN_LOG2_LOG2))
+      .my_addr(SR_SECONDARY_FFT_LEN_LOG2), .awidth(8), .width(SECONDARY_FFT_MAX_LEN_LOG2_LOG2), .at_reset(8))
   sr_secondary_fft_len (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_secondary_fft_len_log2), .changed(setting_secondary_fft_len_log2_changed));
@@ -1024,7 +1030,7 @@ module axi_mrr_gateway #(
 
   wire [CORR_WAIT_LEN_LOG2-1:0] corr_wait_len;
   setting_reg #(
-      .my_addr(SR_CORR_WAIT_LEN), .awidth(8), .width(CORR_WAIT_LEN_LOG2))
+      .my_addr(SR_CORR_WAIT_LEN), .awidth(8), .width(CORR_WAIT_LEN_LOG2), .at_reset(8))
   sr_corr_wait_len (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(corr_wait_len), .changed());
@@ -1037,10 +1043,10 @@ module axi_mrr_gateway #(
   reg [RESAMPLE_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_resample_frac;
   always @(posedge ce_clk) begin
     if(ce_rst) begin
-      setting_sfo_int <= 0;
-      setting_sfo_frac <= 0;
-      setting_resample_int <= 0;
-      setting_resample_frac <= 0;
+      setting_sfo_int <= SFO_INTS;
+      setting_sfo_frac <= SFO_FRACS;
+      setting_resample_int <= N1S;
+      setting_resample_frac <= N2S;
     end else begin
       if(setting_sfo_int_temp_changed) begin
         setting_sfo_int <= {setting_sfo_int[SFO_INT_WIDTH*(NUM_CORRELATORS-1)-1:0], setting_sfo_int_temp};
@@ -1060,7 +1066,7 @@ module axi_mrr_gateway #(
   reg [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask;
   always @(posedge ce_clk) begin
     if(ce_rst) begin
-      primary_fft_mask <= 0;
+      primary_fft_mask <= {{PRIMARY_FFT_MAX_LEN}{1'b1}};
     end else begin
       if(primary_fft_mask_shift) begin
         primary_fft_mask <= {primary_fft_mask[PRIMARY_FFT_MAX_LEN-32-1:0],primary_fft_mask_temp};
