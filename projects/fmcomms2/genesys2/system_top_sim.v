@@ -134,6 +134,7 @@ module sim_top;
     #500 @(posedge sys_clk);
     sys_rst = 1'b0;
     #500 @(posedge sys_clk);
+    @(posedge st1.i_system_wrapper.system_i.axi_ddr_cntrl.init_calib_complete);
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.i_up_adc_common.up_core_preset = 1'b0;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_enable_i0 = 1'b1;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_enable_q0 = 1'b1;

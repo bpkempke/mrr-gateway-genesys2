@@ -1277,7 +1277,7 @@ debug2
       //
       // DMA interface for Write transaction
       //
-      .write_addr({{(32-AWIDTH){1'b0}}, write_addr_reordered}),       // Byte address for start of write transaction (should be 64bit alligned)
+      .write_addr({2'b10, write_addr_reordered}),       // Byte address for start of write transaction (should be 64bit alligned)
       .write_count(write_count),       // Count of 64bit words to write.
       .write_ctrl_valid(write_ctrl_valid),
       .write_ctrl_ready(write_ctrl_ready),
@@ -1287,7 +1287,7 @@ debug2
       //
       // DMA interface for Read
       //
-      .read_addr({{(32-AWIDTH){1'b0}}, read_addr}),       // Byte address for start of read transaction (should be 64bit alligned)
+      .read_addr({2'b10, read_addr}),       // Byte address for start of read transaction (should be 64bit alligned)
       .read_count(read_count),       // Count of 64bit words to read.
       .read_ctrl_valid(read_ctrl_valid),
       .read_ctrl_ready(read_ctrl_ready),
