@@ -222,8 +222,8 @@ module system_top (
     .uart_sout (uart_sout),
     .enable (enable),
     .txnrx (txnrx),
-    //TODO: PUT BACK IN
-    .up_enable (1'b1),//gpio_o[47]),
+    .gateway_enable (gpio_o[31]),
+    .up_enable (gpio_o[47]),
     .up_txnrx (gpio_o[48]));
 
 endmodule

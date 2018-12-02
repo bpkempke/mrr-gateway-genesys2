@@ -8,6 +8,8 @@ module axi_mrr_gateway #(
 )(
   input ce_clk, input ce_rst,
 
+  input enable,
+
   input          adc_clk,
   input          adc_enable_i0,
   input          adc_valid_i0,
@@ -255,7 +257,7 @@ module axi_mrr_gateway #(
   reg adc_valid;
   reg [15:0] adc_i_in_latched;
   reg [15:0] adc_q_in_latched;
-  reg [9:0] input_sample_counter;
+  reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] input_sample_counter;
 
   always @(posedge adc_clk) begin
     if(ce_rst) begin
@@ -269,7 +271,7 @@ module axi_mrr_gateway #(
         input_sample_counter <= input_sample_counter + 1;
         adc_i_in_latched <= adc_data_i0;
         adc_valid <= 1'b1;
-        adc_last <= (input_sample_counter == 10'h3FF);
+        adc_last <= (input_sample_counter == PRIMARY_FFT_LEN-1);
       end
 
       if(adc_enable_q0 & adc_valid_q0) begin
@@ -783,25 +785,33 @@ module axi_mrr_gateway #(
         .debug2         (dram_iq_buffer_debug2)
   );
 
+  assign out_enable_i0 = (enable) ? 1'b1 : adc_enable_i0;
+  assign out_enable_q0 = (enable) ? 1'b1 : adc_enable_q0;
+  assign out_valid_i0 = (enable) ? out_decoded_tvalid : adc_valid_i0;
+  assign out_valid_q0 = (enable) ? out_decoded_tvalid : adc_valid_q0;
+  assign out_data_i0 = (enable) ? out_decoded_tdata[31:16] : adc_data_i0;
+  assign out_data_q0 = (enable) ? out_decoded_tdata[15:0] : adc_data_q0;
 
   //A separate port is used to push out decoded data
   wire [31:0]    out_decoded_tdata;
   wire pause_block;
   wire [127:0]   out_decoded_tuser = {2'd0,1'b0,1'b1,12'd0,16'd4,src_sid[1],next_dst_sid[1],64'd0};
   wire           out_decoded_tlast, out_decoded_tvalid, out_decoded_tready;
-  chdr_framer #(.SIZE(8)) chdr_framer (
-    .clk(ce_clk), .reset(ce_rst), .clear(clear | pause_block),
-    .i_tdata(out_decoded_tdata), .i_tuser(out_decoded_tuser), .i_tlast(out_decoded_tlast), .i_tvalid(out_decoded_tvalid), .i_tready(out_decoded_tready),
-    .o_tdata(str_src_tdata[1]), .o_tlast(str_src_tlast[1]), .o_tvalid(str_src_tvalid[1]), .o_tready(str_src_tready[1]));
+  assign out_decoded_tready = 1'b1;
+  //chdr_framer #(.SIZE(8)) chdr_framer (
+  //  .clk(ce_clk), .reset(ce_rst), .clear(clear | pause_block),
+  //  .i_tdata(out_decoded_tdata), .i_tuser(out_decoded_tuser), .i_tlast(out_decoded_tlast), .i_tvalid(out_decoded_tvalid), .i_tready(out_decoded_tready),
+  //  .o_tdata(str_src_tdata[1]), .o_tlast(str_src_tlast[1]), .o_tvalid(str_src_tvalid[1]), .o_tready(str_src_tready[1]));
 
   //Another separate port is used to push out correlator values
   wire [31:0]    out_corr_tdata;
   wire [127:0]   out_corr_tuser = {2'd0,1'b0,1'b1,12'd0,16'd4,src_sid[0],next_dst_sid[0],64'd0};
   wire           out_corr_tlast, out_corr_tvalid, out_corr_tready;
-  chdr_framer #(.SIZE(8)) chdr_framer2 (
-    .clk(ce_clk), .reset(ce_rst), .clear(clear | pause_block),
-    .i_tdata(out_corr_tdata), .i_tuser(out_corr_tuser), .i_tlast(out_corr_tlast), .i_tvalid(out_corr_tvalid), .i_tready(out_corr_tready),
-    .o_tdata(str_src_tdata[0]), .o_tlast(str_src_tlast[0]), .o_tvalid(str_src_tvalid[0]), .o_tready(str_src_tready[0]));
+  assign out_corr_tready = 1'b1;
+  //chdr_framer #(.SIZE(8)) chdr_framer2 (
+  //  .clk(ce_clk), .reset(ce_rst), .clear(clear | pause_block),
+  //  .i_tdata(out_corr_tdata), .i_tuser(out_corr_tuser), .i_tlast(out_corr_tlast), .i_tvalid(out_corr_tvalid), .i_tready(out_corr_tready),
+  //  .o_tdata(str_src_tdata[0]), .o_tlast(str_src_tlast[0]), .o_tvalid(str_src_tvalid[0]), .o_tready(str_src_tready[0]));
 
 
   /////////////////////////////////////////////////////////////////////////////
@@ -982,7 +992,7 @@ module axi_mrr_gateway #(
     .mask_out(setting_primary_fft_len_mask)
   );
   setting_reg #(
-      .my_addr(SR_PRIMARY_FFT_LEN_LOG2), .awidth(8), .width(4), .at_reset(10))
+      .my_addr(SR_PRIMARY_FFT_LEN_LOG2), .awidth(8), .width(4), .at_reset(PRIMARY_FFT_LEN_LOG2))
   sr_primary_fft_len (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_primary_fft_len_log2), .changed(setting_primary_fft_len_log2_changed));
@@ -1001,7 +1011,7 @@ module axi_mrr_gateway #(
     .mask_out(setting_reorder_factor_mask)
   );
   setting_reg #(
-      .my_addr(SR_PRIMARY_FFT_LEN_DECIM_LOG2), .awidth(8), .width(4), .at_reset(6))
+      .my_addr(SR_PRIMARY_FFT_LEN_DECIM_LOG2), .awidth(8), .width(4), .at_reset(PRIMARY_FFT_LEN_DECIM_LOG2))
   sr_primary_fft_len_decim (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_primary_fft_len_decim_log2), .changed());
@@ -1015,7 +1025,7 @@ module axi_mrr_gateway #(
     .mask_out(setting_secondary_fft_len_mask)
   );
   setting_reg #(
-      .my_addr(SR_SECONDARY_FFT_LEN_LOG2), .awidth(8), .width(SECONDARY_FFT_MAX_LEN_LOG2_LOG2), .at_reset(8))
+      .my_addr(SR_SECONDARY_FFT_LEN_LOG2), .awidth(8), .width(SECONDARY_FFT_MAX_LEN_LOG2_LOG2), .at_reset(SECONDARY_FFT_LEN_LOG2))
   sr_secondary_fft_len (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_secondary_fft_len_log2), .changed(setting_secondary_fft_len_log2_changed));
