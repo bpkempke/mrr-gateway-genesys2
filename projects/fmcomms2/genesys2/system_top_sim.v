@@ -140,6 +140,7 @@ module sim_top;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_enable_q0 = 1'b1;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_r1_mode = 1'b1;
     force st1.gpio_o[47] = 1'b1;
+    force st1.gpio_o[31] = 1'b1;
     #5000000 @(posedge sys_clk);
   end
 
