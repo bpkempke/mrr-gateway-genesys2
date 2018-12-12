@@ -155,12 +155,14 @@ module system_top (
 
   system_wrapper i_system_wrapper (
     //.phy_rst_n (phy_rst_n),
+
     //TODO: PUT BACK IN
-    //.qspi_flash_io0_io (qspi_flash_io0_io),
-    //.qspi_flash_io1_io (qspi_flash_io1_io),
-    //.qspi_flash_io2_io (qspi_flash_io2_io),
-    //.qspi_flash_io3_io (qspi_flash_io3_io),
-    //.qspi_flash_ss_io (qspi_flash_ss_io),
+    .qspi_flash_io0_io (qspi_flash_io0_io),
+    .qspi_flash_io1_io (qspi_flash_io1_io),
+    .qspi_flash_io2_io (qspi_flash_io2_io),
+    .qspi_flash_io3_io (qspi_flash_io3_io),
+    .qspi_flash_ss_io (qspi_flash_ss_io),
+
     //.rgmii_rd (rgmii_rd),
     //.rgmii_rx_ctl (rgmii_rx_ctl),
     //.rgmii_rxc (rgmii_rxc),

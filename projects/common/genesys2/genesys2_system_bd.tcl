@@ -16,7 +16,8 @@ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:iic_rtl:1.0 iic_main
 create_bd_port -dir I uart_sin
 create_bd_port -dir O uart_sout
 
-#create_bd_intf_port -mode Master -vlnv xilinx.com:interface:spi_rtl:1.0 qspi_flash
+#TODO: Put back in
+create_bd_intf_port -mode Master -vlnv xilinx.com:interface:spi_rtl:1.0 qspi_flash
 
 create_bd_port -dir O -type rst phy_rst_n
 
@@ -97,10 +98,11 @@ ad_ip_parameter axi_uart CONFIG.C_BAUDRATE 115200
 
 ad_ip_instance axi_timer axi_timer
 
-#ad_ip_instance axi_quad_spi axi_spi
-#ad_ip_parameter axi_spi CONFIG.C_USE_STARTUP 0
-#ad_ip_parameter axi_spi CONFIG.C_NUM_SS_BITS 8
-#ad_ip_parameter axi_spi CONFIG.C_SCK_RATIO 8
+#TODO: Put back in
+ad_ip_instance axi_quad_spi axi_spi
+ad_ip_parameter axi_spi CONFIG.C_USE_STARTUP 0
+ad_ip_parameter axi_spi CONFIG.C_NUM_SS_BITS 8
+ad_ip_parameter axi_spi CONFIG.C_SCK_RATIO 8
 
 ad_ip_instance axi_gpio axi_gpio
 ad_ip_parameter axi_gpio CONFIG.C_IS_DUAL 1
@@ -118,12 +120,14 @@ ad_ip_parameter sys_concat_intc CONFIG.NUM_PORTS 16
 
 # linear flash
 
-#ad_ip_instance axi_quad_spi axi_qspi_flash
-#ad_ip_parameter axi_qspi_flash CONFIG.USE_BOARD_FLOW true
-#ad_ip_parameter axi_qspi_flash CONFIG.QSPI_BOARD_INTERFACE qspi_flash
-#ad_ip_parameter axi_qspi_flash CONFIG.C_TYPE_OF_AXI4_INTERFACE 1
-#ad_ip_parameter axi_qspi_flash CONFIG.C_SPI_MEM_ADDR_BITS 32
-#ad_ip_parameter axi_qspi_flash CONFIG.C_S_AXI4_ID_WIDTH 0
+#TODO: Put back in
+ad_ip_instance axi_quad_spi axi_qspi_flash
+ad_ip_parameter axi_qspi_flash CONFIG.USE_BOARD_FLOW true
+ad_ip_parameter axi_qspi_flash CONFIG.QSPI_BOARD_INTERFACE qspi_flash
+ad_ip_parameter axi_qspi_flash CONFIG.C_TYPE_OF_AXI4_INTERFACE 1
+ad_ip_parameter axi_qspi_flash CONFIG.C_SPI_MEM_ADDR_BITS 32
+ad_ip_parameter axi_qspi_flash CONFIG.C_S_AXI4_ID_WIDTH 0
+
 ####TODO
 #ad_ip_parameter axi_qspi_flash CONFIG.C_MEM0_TYPE 2
 #ad_ip_parameter axi_qspi_flash CONFIG.C_S_AXI_MEM_ID_WIDTH 0
@@ -178,7 +182,9 @@ ad_connect sys_cpu_clk  sys_dlmb/LMB_Clk
 ad_connect sys_cpu_clk  sys_ilmb/LMB_Clk
 ad_connect sys_cpu_clk  sys_dlmb_cntlr/LMB_Clk
 ad_connect sys_cpu_clk  sys_ilmb_cntlr/LMB_Clk
-#ad_connect sys_cpu_clk  axi_spi/ext_spi_clk
+
+#TODO: Put back in
+ad_connect sys_cpu_clk  axi_spi/ext_spi_clk
 
 # defaults (interrupts)
 
@@ -213,13 +219,15 @@ ad_connect  uart_sin axi_uart/rx
 ad_connect  uart_sout axi_uart/tx
 ad_connect  iic_main axi_iic_main/iic
 
-#ad_connect  spi_csn_i axi_spi/ss_i
-#ad_connect  spi_csn_o axi_spi/ss_o
-#ad_connect  spi_clk_i axi_spi/sck_i
-#ad_connect  spi_clk_o axi_spi/sck_o
-#ad_connect  spi_sdo_i axi_spi/io0_i
-#ad_connect  spi_sdo_o axi_spi/io0_o
-#ad_connect  spi_sdi_i axi_spi/io1_i
+#TODO: Put back in
+ad_connect  spi_csn_i axi_spi/ss_i
+ad_connect  spi_csn_o axi_spi/ss_o
+ad_connect  spi_clk_i axi_spi/sck_i
+ad_connect  spi_clk_o axi_spi/sck_o
+ad_connect  spi_sdo_i axi_spi/io0_i
+ad_connect  spi_sdo_o axi_spi/io0_o
+ad_connect  spi_sdi_i axi_spi/io1_i
+
 ad_connect  gpio0_i axi_gpio/gpio_io_i
 ad_connect  gpio0_o axi_gpio/gpio_io_o
 ad_connect  gpio0_t axi_gpio/gpio_io_t
@@ -229,11 +237,12 @@ ad_connect  gpio1_t axi_gpio/gpio2_io_t
 
 # qspi_flash
 
-#ad_connect axi_qspi_flash/SPI_0 qspi_flash
-#
-#ad_connect sys_cpu_resetn axi_qspi_flash/s_axi4_aresetn
-#ad_connect sys_cpu_clk axi_qspi_flash/s_axi4_aclk
-#ad_connect sys_cpu_clk axi_qspi_flash/ext_spi_clk
+#TODO: Put back in
+ad_connect axi_qspi_flash/SPI_0 qspi_flash
+
+ad_connect sys_cpu_resetn axi_qspi_flash/s_axi4_aresetn
+ad_connect sys_cpu_clk axi_qspi_flash/s_axi4_aclk
+ad_connect sys_cpu_clk axi_qspi_flash/ext_spi_clk
 
 # ethernet & ethernet dma
 
@@ -264,8 +273,10 @@ ad_cpu_interconnect 0x41C00000 axi_timer
 ad_cpu_interconnect 0x40600000 axi_uart
 ad_cpu_interconnect 0x41600000 axi_iic_main
 ad_cpu_interconnect 0x40000000 axi_gpio
-#ad_cpu_interconnect 0x44A70000 axi_spi
-#ad_cpu_interconnect 0x60000000 axi_qspi_flash
+
+#TODO: Put back in
+ad_cpu_interconnect 0x44A70000 axi_spi
+ad_cpu_interconnect 0x60000000 axi_qspi_flash
 
 ad_mem_hp0_interconnect sys_200m_clk axi_ddr_cntrl/S_AXI
 ad_mem_hp0_interconnect sys_cpu_clk sys_mb/M_AXI_DC
@@ -279,9 +290,11 @@ create_bd_addr_seg -range 0x20000 -offset 0x0 [get_bd_addr_spaces sys_mb/Data] \
 create_bd_addr_seg -range 0x20000 -offset 0x0 [get_bd_addr_spaces sys_mb/Instruction] \
   [get_bd_addr_segs sys_ilmb_cntlr/SLMB/Mem] SEG_ilmb_cntlr
 
-#set_property range 0x2000000 [get_bd_addr_segs {sys_mb/Data/SEG_data_axi_qspi_flash}]
+#TODO: Put back in
+set_property range 0x2000000 [get_bd_addr_segs {sys_mb/Data/SEG_data_axi_qspi_flash}]
+
 #set_property range 0x2000    [get_bd_addr_segs {sys_mb/Data/SEG_data_axi_ethernet}]
 
-#ad_connect axi_ddr_cntrl/device_temp_i GND
+ad_connect axi_ddr_cntrl/device_temp_i GND
 
 

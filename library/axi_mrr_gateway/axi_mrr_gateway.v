@@ -6,7 +6,7 @@ module axi_mrr_gateway #(
   parameter [NUM_FIFOS*12-1:0] DEFAULT_BURST_TIMEOUT = {12'd280, 12'd280}, //Timeout (in memory clock cycles) for issuing smaller than optimal bursts
   parameter EXTENDED_DRAM_BIST = 1              //Prune out additional BIST features for production
 )(
-  input ce_clk, input ce_rst,
+  input ce_clk, input ce_rst_in,
 
   input enable,
 
@@ -222,6 +222,12 @@ module axi_mrr_gateway #(
   wire [PRIMARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_primary_fft_len_log2;
   wire setting_primary_fft_len_log2_changed;
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_reorder_factor_log2 = setting_primary_fft_len_log2-setting_primary_fft_len_decim_log2;
+
+  reg [2:0] ce_rst_reg;
+  wire ce_rst = ce_rst_reg[2];
+  always @(posedge ce_clk) begin
+    ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in};
+  end
 
   /////////////////////////////////////////////////////////////
   //
@@ -785,12 +791,33 @@ module axi_mrr_gateway #(
         .debug2         (dram_iq_buffer_debug2)
   );
 
-  assign out_enable_i0 = (enable) ? 1'b1 : adc_enable_i0;
-  assign out_enable_q0 = (enable) ? 1'b1 : adc_enable_q0;
-  assign out_valid_i0 = (enable) ? out_decoded_tvalid : adc_valid_i0;
-  assign out_valid_q0 = (enable) ? out_decoded_tvalid : adc_valid_q0;
-  assign out_data_i0 = (enable) ? out_decoded_tdata[31:16] : adc_data_i0;
-  assign out_data_q0 = (enable) ? out_decoded_tdata[15:0] : adc_data_q0;
+  reg [2:0] enable_reg;
+  always @(posedge adc_clk) begin
+    enable_reg <= {enable_reg[1:0], enable};
+  end
+
+  wire [31:0] out_decoded_tdata_post;
+  wire out_decoded_tempty_post;
+  fifo_short_2clk output_samples_fifo (
+    .rst(ce_rst),
+    .wr_clk(ce_clk),
+    .din({32'd0,out_decoded_tdata}),
+    .wr_en(out_decoded_tvalid),
+    .full(),
+    .wr_data_count(),
+    .rd_clk(adc_clk),
+    .dout(out_decoded_tdata_post),
+    .rd_en(1'b1),
+    .empty(out_decoded_tempty_post),
+    .rd_data_count()
+  );
+
+  assign out_enable_i0 = (enable_reg[2]) ? 1'b1 : adc_enable_i0;
+  assign out_enable_q0 = (enable_reg[2]) ? 1'b1 : adc_enable_q0;
+  assign out_valid_i0  = (enable_reg[2]) ? ~out_decoded_tempty_post : adc_valid_i0;
+  assign out_valid_q0  = (enable_reg[2]) ? ~out_decoded_tempty_post : adc_valid_q0;
+  assign out_data_i0   = (enable_reg[2]) ? out_decoded_tdata_post[31:16] : adc_data_i0;
+  assign out_data_q0   = (enable_reg[2]) ? out_decoded_tdata_post[15:0] : adc_data_q0;
 
   //A separate port is used to push out decoded data
   wire [31:0]    out_decoded_tdata;
