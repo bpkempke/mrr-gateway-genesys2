@@ -21,6 +21,7 @@ create_bd_port -dir I up_enable
 create_bd_port -dir I up_txnrx
 
 create_bd_port -dir I gateway_enable
+create_bd_port -dir O -from 15 -to 0 gateway_debug
 
 create_bd_port -dir O tdd_sync_o
 create_bd_port -dir I tdd_sync_i
@@ -100,6 +101,7 @@ ad_connect axi_ad9361/adc_valid_q0 mrr_gateway/adc_valid_q0
 ad_connect axi_ad9361/adc_data_q0 mrr_gateway/adc_data_q0
 ad_connect axi_ad9361/l_clk mrr_gateway/adc_clk
 ad_connect gateway_enable mrr_gateway/enable
+ad_connect gateway_debug mrr_gateway/debug
 
 # adc-path wfifo
 

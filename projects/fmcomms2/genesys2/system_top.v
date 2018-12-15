@@ -112,7 +112,9 @@ module system_top (
   output                  spi_csn_0,
   output                  spi_clk,
   output                  spi_mosi,
-  input                   spi_miso);
+  input                   spi_miso,
+
+  output      [15:0]      debug);
 
   // internal signals
 
@@ -225,6 +227,7 @@ module system_top (
     .enable (enable),
     .txnrx (txnrx),
     .gateway_enable (gpio_o[31]),
+    .gateway_debug (debug),
     .up_enable (gpio_o[47]),
     .up_txnrx (gpio_o[48]));
 

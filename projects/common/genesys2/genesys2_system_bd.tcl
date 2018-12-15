@@ -198,8 +198,7 @@ ad_connect sys_concat_intc/In6    GND
 ad_connect sys_concat_intc/In7    GND
 ad_connect sys_concat_intc/In8    GND
 ad_connect sys_concat_intc/In9    axi_iic_main/iic2intc_irpt
-ad_connect sys_concat_intc/In10   GND
-#axi_spi/ip2intc_irpt
+ad_connect sys_concat_intc/In10   axi_spi/ip2intc_irpt
 ad_connect sys_concat_intc/In11   axi_gpio/ip2intc_irpt
 ad_connect sys_concat_intc/In12   GND
 ad_connect sys_concat_intc/In13   GND

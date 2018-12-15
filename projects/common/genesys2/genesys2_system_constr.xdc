@@ -86,6 +86,26 @@ set_property -dict { PACKAGE_PIN W23   IOSTANDARD LVCMOS33 } [get_ports { gpio_b
 
 # iic
 
+# PMOD Header JA
+set_property -dict { PACKAGE_PIN U28   IOSTANDARD LVCMOS33 } [get_ports { debug[0] }]; #IO_L13N_T2_MRCC_14 Sch=ja_n[1]
+set_property -dict { PACKAGE_PIN U27   IOSTANDARD LVCMOS33 } [get_ports { debug[1] }]; #IO_L13P_T2_MRCC_14 Sch=ja_p[1]
+set_property -dict { PACKAGE_PIN T27   IOSTANDARD LVCMOS33 } [get_ports { debug[2] }]; #IO_L12N_T1_MRCC_14 Sch=ja_n[2]
+set_property -dict { PACKAGE_PIN T26   IOSTANDARD LVCMOS33 } [get_ports { debug[3] }]; #IO_L12P_T1_MRCC_14 Sch=ja_p[2]
+set_property -dict { PACKAGE_PIN T23   IOSTANDARD LVCMOS33 } [get_ports { debug[4] }]; #IO_L5N_T0_D07_14 Sch=ja_n[3]
+set_property -dict { PACKAGE_PIN T22   IOSTANDARD LVCMOS33 } [get_ports { debug[5] }]; #IO_L5P_T0_D06_14 Sch=ja_p[3]
+set_property -dict { PACKAGE_PIN T21   IOSTANDARD LVCMOS33 } [get_ports { debug[6] }]; #IO_L4N_T0_D05_14 Sch=ja_n[4]
+set_property -dict { PACKAGE_PIN T20   IOSTANDARD LVCMOS33 } [get_ports { debug[7] }]; #IO_L4P_T0_D04_14 Sch=ja_p[4]
+
+# PMOD Header JB
+set_property -dict { PACKAGE_PIN V30   IOSTANDARD LVCMOS33 } [get_ports { debug[8] }]; #IO_L17N_T2_A13_D29_14 Sch=jb_n[1]
+set_property -dict { PACKAGE_PIN V29   IOSTANDARD LVCMOS33 } [get_ports { debug[9] }]; #IO_L17P_T2_A14_D30_14 Sch=jb_p[1]
+set_property -dict { PACKAGE_PIN W26   IOSTANDARD LVCMOS33 } [get_ports { debug[10] }]; #IO_L18N_T2_A11_D27_14 Sch=jb_n[2]
+set_property -dict { PACKAGE_PIN V25   IOSTANDARD LVCMOS33 } [get_ports { debug[11] }]; #IO_L18P_T2_A12_D28_14 Sch=jb_p[2]
+set_property -dict { PACKAGE_PIN U25   IOSTANDARD LVCMOS33 } [get_ports { debug[12] }]; #IO_L14N_T2_SRCC_14 Sch=jb_n[3]
+set_property -dict { PACKAGE_PIN T25   IOSTANDARD LVCMOS33 } [get_ports { debug[13] }]; #IO_L14P_T2_SRCC_14 Sch=jb_p[3]
+set_property -dict { PACKAGE_PIN U23   IOSTANDARD LVCMOS33 } [get_ports { debug[14] }]; #IO_L21N_T3_DQS_A06_D22_14 Sch=jb_n[4]
+set_property -dict { PACKAGE_PIN U22   IOSTANDARD LVCMOS33 } [get_ports { debug[15] }]; #IO_L21P_T3_DQS_14 Sch=jb_p[4]
+
 ######## STILL TBD ########
 #set_property -dict  {PACKAGE_PIN  P23   IOSTANDARD  LVCMOS25} [get_ports iic_rstn]
 

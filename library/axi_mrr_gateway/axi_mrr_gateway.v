@@ -159,7 +159,7 @@ module axi_mrr_gateway #(
   input         m_axi2_rvalid,   // Read valid. This signal indicates that the channel is signaling the required read data. 
   output        m_axi2_rready,   // Read ready. This signal indicates that the master can accept the read data and response
 
-  output [63:0] debug
+  output [15:0] debug
 );
   localparam NUM_INPUTS = 1; //Input Port 0: IQ Data (input-output synchronized)
                              //NO MORE: Input Port 1: FFT Data
@@ -167,6 +167,7 @@ module axi_mrr_gateway #(
                              //Output Port 1: Decoded Soft Symbols
   `include "mrr_params.vh"
   `include "git_version.vh"
+
 
   /////////////////////////////////////////////////////////////
   //
@@ -261,6 +262,7 @@ module axi_mrr_gateway #(
 
   reg adc_last;
   reg adc_valid;
+  wire enable_sync;
   reg [15:0] adc_i_in_latched;
   reg [15:0] adc_q_in_latched;
   reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] input_sample_counter;
@@ -273,15 +275,19 @@ module axi_mrr_gateway #(
       adc_i_in_latched <= 0;
       adc_q_in_latched <= 0;
     end else begin
-      if(adc_enable_i0 & adc_valid_i0) begin
-        input_sample_counter <= input_sample_counter + 1;
-        adc_i_in_latched <= adc_data_i0;
-        adc_valid <= 1'b1;
-        adc_last <= (input_sample_counter == PRIMARY_FFT_LEN-1);
-      end
+      if(~enable_sync) begin
+        adc_valid <= 1'b0;
+      end else begin
+        if(adc_enable_i0 & adc_valid_i0 & enable_sync) begin
+          input_sample_counter <= input_sample_counter + 1;
+          adc_i_in_latched <= adc_data_i0;
+          adc_valid <= 1'b1;
+          adc_last <= (input_sample_counter == PRIMARY_FFT_LEN-1);
+        end
 
-      if(adc_enable_q0 & adc_valid_q0) begin
-        adc_q_in_latched <= adc_data_q0;
+        if(adc_enable_q0 & adc_valid_q0 & enable_sync) begin
+          adc_q_in_latched <= adc_data_q0;
+        end
       end
     end
   end
@@ -305,6 +311,7 @@ module axi_mrr_gateway #(
 
   wire [31:0]    out_tdata;
   wire           out_tlast, out_tvalid, out_tready, out_tkeep;
+  assign out_tready = 1'b1;
 
   wire [15:0] turnaround_ticks;
   wire [15:0] tick_rate;
@@ -792,6 +799,7 @@ module axi_mrr_gateway #(
   );
 
   reg [2:0] enable_reg;
+  assign enable_sync = enable_reg[2];
   always @(posedge adc_clk) begin
     enable_reg <= {enable_reg[1:0], enable};
   end
@@ -883,7 +891,7 @@ module axi_mrr_gateway #(
   wire [CORR_WIDTH-1:0] threshold;
 
   setting_reg #(
-    .my_addr(SR_THRE), .awidth(8), .width(CORR_WIDTH), .at_reset(2500))
+    .my_addr(SR_THRE), .awidth(8), .width(CORR_WIDTH), .at_reset(25))
   sr_thre (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(threshold), .changed());
@@ -1250,5 +1258,7 @@ module axi_mrr_gateway #(
         .valids(mrr_basic_valids),
         .cfo_search_debug(cfo_search_debug)
   );
+
+assign debug = {adc_clk, adc_enable_i0, adc_valid_i0, adc_enable_q0, adc_valid_q0, out_enable_i0, out_valid_i0, out_enable_q0, out_valid_q0, sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, fft_buff_o_tvalid};
 
 endmodule
