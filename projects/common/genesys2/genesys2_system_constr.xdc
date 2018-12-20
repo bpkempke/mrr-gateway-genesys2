@@ -106,6 +106,24 @@ set_property -dict { PACKAGE_PIN T25   IOSTANDARD LVCMOS33 } [get_ports { debug[
 set_property -dict { PACKAGE_PIN U23   IOSTANDARD LVCMOS33 } [get_ports { debug[14] }]; #IO_L21N_T3_DQS_A06_D22_14 Sch=jb_n[4]
 set_property -dict { PACKAGE_PIN U22   IOSTANDARD LVCMOS33 } [get_ports { debug[15] }]; #IO_L21P_T3_DQS_14 Sch=jb_p[4]
 
+# DPTI
+set_property -dict { PACKAGE_PIN AB27  IOSTANDARD LVCMOS33 } [get_ports { PROG_CLKO }]; #IO_L12P_T1_MRCC_13 Sch=prog_clko
+set_property -dict { PACKAGE_PIN AD27  IOSTANDARD LVCMOS33 } [get_ports { PROG_D[0] }]; #IO_L11P_T1_SRCC_13 Sch=prog_d0/sck
+set_property -dict { PACKAGE_PIN W27   IOSTANDARD LVCMOS33 } [get_ports { PROG_D[1] }]; #IO_L2P_T0_13 Sch=prog_d1/mosi
+set_property -dict { PACKAGE_PIN W28   IOSTANDARD LVCMOS33 } [get_ports { PROG_D[2] }]; #IO_L2N_T0_13 Sch=prog_d2/miso
+set_property -dict { PACKAGE_PIN W29   IOSTANDARD LVCMOS33 } [get_ports { PROG_D[3] }]; #IO_L4P_T0_13 Sch=prog_d3/ss
+set_property -dict { PACKAGE_PIN Y29   IOSTANDARD LVCMOS33 } [get_ports { PROG_D[4] }]; #IO_L4N_T0_13 Sch=prog_d[4]
+set_property -dict { PACKAGE_PIN Y28   IOSTANDARD LVCMOS33 } [get_ports { PROG_D[5] }]; #IO_L3P_T0_DQS_13 Sch=prog_d[5]
+set_property -dict { PACKAGE_PIN AA28  IOSTANDARD LVCMOS33 } [get_ports { PROG_D[6] }]; #IO_L3N_T0_DQS_13 Sch=prog_d[6]
+set_property -dict { PACKAGE_PIN AA26  IOSTANDARD LVCMOS33 } [get_ports { PROG_D[7] }]; #IO_L1N_T0_13 Sch=prog_d[7]
+set_property -dict { PACKAGE_PIN AC30  IOSTANDARD LVCMOS33 } [get_ports { PROG_OEN }]; #IO_L7N_T1_13 Sch=prog_oen
+set_property -dict { PACKAGE_PIN AB25  IOSTANDARD LVCMOS33 } [get_ports { PROG_RDN }]; #IO_L6N_T0_VREF_13 Sch=prog_rdn
+set_property -dict { PACKAGE_PIN AB29  IOSTANDARD LVCMOS33 } [get_ports { PROG_RXFN }]; #IO_L10P_T1_13 Sch=prog_rxfn
+set_property -dict { PACKAGE_PIN AB28  IOSTANDARD LVCMOS33 } [get_ports { PROG_SIWUN }]; #IO_L5N_T0_13 Sch=prog_siwun
+set_property -dict { PACKAGE_PIN AD29  IOSTANDARD LVCMOS33 } [get_ports { PROG_SPIEN }]; #IO_L9P_T1_DQS_13 Sch=prog_spien
+set_property -dict { PACKAGE_PIN AA25  IOSTANDARD LVCMOS33 } [get_ports { PROG_TXEN }]; #IO_L6P_T0_13 Sch=prog_txen
+set_property -dict { PACKAGE_PIN AC27  IOSTANDARD LVCMOS33 } [get_ports { PROG_WRN }]; #IO_L12N_T1_MRCC_13 Sch=prog_wrn
+
 ######## STILL TBD ########
 #set_property -dict  {PACKAGE_PIN  P23   IOSTANDARD  LVCMOS25} [get_ports iic_rstn]
 

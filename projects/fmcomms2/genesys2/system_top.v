@@ -50,6 +50,16 @@ module system_top (
   //output rgmii_tx_ctl,
   //output rgmii_txc,
 
+  inout [7:0] PROG_D,
+  input PROG_CLKO,
+  output PROG_OEN,
+  output PROG_RDN,
+  input PROG_RXFN,
+  output PROG_SIWUN,
+  output PROG_SPIEN,
+  input PROG_TXEN,
+  output PROG_WRN,
+
   input                   sys_rst,
   input                   sys_clk_p,
   input                   sys_clk_n,
@@ -228,6 +238,15 @@ module system_top (
     .txnrx (txnrx),
     .gateway_enable (gpio_o[31]),
     .gateway_debug (debug),
+    .PROG_D(PROG_D),
+    .PROG_CLKO(PROG_CLKO),
+    .PROG_OEN(PROG_OEN),
+    .PROG_RDN(PROG_RDN),
+    .PROG_RXFN(PROG_RXFN),
+    .PROG_SIWUN(PROG_SIWUN),
+    .PROG_SPIEN(PROG_SPIEN),
+    .PROG_TXEN(PROG_TXEN),
+    .PROG_WRN(PROG_WRN),
     .up_enable (gpio_o[47]),
     .up_txnrx (gpio_o[48]));
 

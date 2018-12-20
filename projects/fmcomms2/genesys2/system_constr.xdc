@@ -59,4 +59,4 @@ set_property  -dict {PACKAGE_PIN  A21   IOSTANDARD LVCMOS25} [get_ports spi_miso
 # clocks
 
 create_clock -name rx_clk       -period  4 [get_ports rx_clk_in_p]
-
+create_clock -name PROG_CLKO    -period  16 [get_ports PROG_CLKO]

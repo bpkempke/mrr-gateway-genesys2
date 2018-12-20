@@ -1,6 +1,16 @@
 
 # fmcomms2
 
+create_bd_port -dir IO -from 7 -to 0 PROG_D
+create_bd_port -dir I PROG_CLKO
+create_bd_port -dir O PROG_OEN
+create_bd_port -dir O PROG_RDN
+create_bd_port -dir I PROG_RXFN
+create_bd_port -dir O PROG_SIWUN
+create_bd_port -dir O PROG_SPIEN
+create_bd_port -dir I PROG_TXEN
+create_bd_port -dir O PROG_WRN
+
 create_bd_port -dir I rx_clk_in_p
 create_bd_port -dir I rx_clk_in_n
 create_bd_port -dir I rx_frame_in_p
@@ -102,6 +112,16 @@ ad_connect axi_ad9361/adc_data_q0 mrr_gateway/adc_data_q0
 ad_connect axi_ad9361/l_clk mrr_gateway/adc_clk
 ad_connect gateway_enable mrr_gateway/enable
 ad_connect gateway_debug mrr_gateway/debug
+
+ad_connect PROG_D mrr_gateway/PROG_D
+ad_connect PROG_CLKO mrr_gateway/PROG_CLKO
+ad_connect PROG_OEN mrr_gateway/PROG_OEN
+ad_connect PROG_RDN mrr_gateway/PROG_RDN
+ad_connect PROG_RXFN mrr_gateway/PROG_RXFN
+ad_connect PROG_SIWUN mrr_gateway/PROG_SIWUN
+ad_connect PROG_SPIEN mrr_gateway/PROG_SPIEN
+ad_connect PROG_TXEN mrr_gateway/PROG_TXEN
+ad_connect PROG_WRN mrr_gateway/PROG_WRN
 
 # adc-path wfifo
 

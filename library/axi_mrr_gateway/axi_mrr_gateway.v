@@ -10,6 +10,16 @@ module axi_mrr_gateway #(
 
   input enable,
 
+  inout [7:0] PROG_D,
+  input PROG_CLKO,
+  output reg PROG_OEN,
+  output reg PROG_RDN,
+  input  PROG_RXFN,
+  output reg PROG_SIWUN,
+  output reg PROG_SPIEN,
+  input PROG_TXEN,
+  output reg PROG_WRN,
+
   input          adc_clk,
   input          adc_enable_i0,
   input          adc_valid_i0,
@@ -168,6 +178,32 @@ module axi_mrr_gateway #(
   `include "mrr_params.vh"
   `include "git_version.vh"
 
+  /////////////////////////////////////////////////////////////
+  //
+  // DPTI (FT245) FIFO Interface
+  //
+  ////////////////////////////////////////////////////////////
+  reg prog_oen_last;
+  reg [1:0] enable_last;
+  reg [7:0] dpti_d;
+  assign PROG_D = (PROG_OEN) ? dpti_d : 8'hzz;
+  always @(posedge PROG_CLKO) begin
+    PROG_OEN <= 1'b1;
+    PROG_RDN <= 1'b1;
+    PROG_SIWUN <= 1'b1;
+    PROG_SPIEN <= 1'b1;
+    enable_last <= {enable_last[0], enable};
+
+    if(~enable_last[1]) begin
+      PROG_WRN <= 1'b1;
+      dpti_d <= 0;
+    end else begin
+      PROG_WRN <= PROG_TXEN;
+      if((PROG_TXEN == 1'b0) && (PROG_WRN == 1'b0)) begin
+        dpti_d <= dpti_d + 1;
+      end
+    end
+  end
 
   /////////////////////////////////////////////////////////////
   //
@@ -315,7 +351,15 @@ module axi_mrr_gateway #(
 
   wire [15:0] turnaround_ticks;
   wire [15:0] tick_rate;
-  wire [63:0] cur_time;
+  reg [63:0] cur_time;
+
+  always @(posedge ce_clk) begin
+    if(ce_rst) begin
+      cur_time <= 0;
+    end else begin
+      cur_time <= cur_time + 1;
+    end
+  end
 
   //A FIFO is used to store IQ samples which are currently being processed by FFT block
   //TODO: What size is best?!
@@ -1259,6 +1303,8 @@ module axi_mrr_gateway #(
         .cfo_search_debug(cfo_search_debug)
   );
 
-assign debug = {adc_clk, adc_enable_i0, adc_valid_i0, adc_enable_q0, adc_valid_q0, out_enable_i0, out_valid_i0, out_enable_q0, out_valid_q0, sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, fft_buff_o_tvalid};
+//assign debug = {adc_clk, adc_enable_i0, adc_valid_i0, adc_enable_q0, adc_valid_q0, out_enable_i0, out_valid_i0, out_enable_q0, out_valid_q0, sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, fft_buff_o_tvalid};
+
+assign debug = {PROG_D,PROG_CLKO,PROG_OEN,PROG_RDN,PROG_RXFN,PROG_SIWUN,PROG_SPIEN,PROG_TXEN,PROG_WRN};
 
 endmodule
