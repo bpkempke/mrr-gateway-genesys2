@@ -183,10 +183,20 @@ module axi_mrr_gateway #(
   // DPTI (FT245) FIFO Interface
   //
   ////////////////////////////////////////////////////////////
-  reg prog_oen_last;
+  reg dpti_fifo_rd_en;
+  wire dpti_fifo_rd_empty;
+  reg dpti_shift_reset;
+  reg dpti_shift_en;
+  reg [2:0] dpti_state, next_dpti_state;
   reg [1:0] enable_last;
-  reg [7:0] dpti_d;
-  assign PROG_D = (PROG_OEN) ? dpti_d : 8'hzz;
+  reg [2:0] dpti_shift_ctr;
+  reg [39:0] dpti_d_shift;
+  wire [39:0] dpti_fifo_rd;
+  assign PROG_D = (PROG_OEN) ? dpti_d_shift[39-:8] : 8'hzz;
+
+  localparam DPTI_STATE_IDLE = 0;
+  localparam DPTI_STATE_TX_WORD = 1;
+
   always @(posedge PROG_CLKO) begin
     PROG_OEN <= 1'b1;
     PROG_RDN <= 1'b1;
@@ -195,15 +205,71 @@ module axi_mrr_gateway #(
     enable_last <= {enable_last[0], enable};
 
     if(~enable_last[1]) begin
-      PROG_WRN <= 1'b1;
-      dpti_d <= 0;
+      dpti_d_shift <= 0;
+      dpti_state <= DPTI_STATE_IDLE;
     end else begin
-      PROG_WRN <= PROG_TXEN;
-      if((PROG_TXEN == 1'b0) && (PROG_WRN == 1'b0)) begin
-        dpti_d <= dpti_d + 1;
+      dpti_state <= next_dpti_state;
+      if(dpti_shift_reset) begin
+        dpti_d_shift <= dpti_fifo_rd;
+        dpti_shift_ctr <= 0;
+      end else if(dpti_shift_en) begin
+        dpti_d_shift <= {dpti_d_shift[31:0], 8'd0};
+        dpti_shift_ctr <= dpti_shift_ctr + 1;
       end
     end
   end
+
+  always @* begin
+    next_dpti_state = dpti_state;
+    dpti_shift_reset = 1'b0;
+    dpti_shift_en = 1'b0;
+    dpti_fifo_rd_en = 1'b0;
+    PROG_WRN = 1'b1;
+    case(dpti_state)
+
+      DPTI_STATE_IDLE: begin
+        dpti_shift_reset = 1'b1;
+        if(~dpti_fifo_rd_empty) begin
+          next_dpti_state = DPTI_STATE_TX_WORD;
+        end
+      end
+
+      DPTI_STATE_TX_WORD: begin
+        PROG_WRN = 1'b0;
+        dpti_shift_en = (PROG_TXEN == 1'b0);
+        dpti_shift_reset = dpti_shift_en & (dpti_shift_ctr == 3'd4);
+        dpti_fifo_rd_en = dpti_shift_en & (dpti_shift_ctr == 3'd0);
+        if(dpti_shift_reset & dpti_fifo_rd_empty) begin
+          next_dpti_state = DPTI_STATE_IDLE;
+        end
+      end
+    endcase
+  end
+
+  reg [31:0] out_decoded_tdata_counter;
+  always @(posedge ce_clk) begin
+    if(ce_rst) begin
+      out_decoded_tdata_counter <= 0;
+    end else begin
+      if(out_decoded_tvalid) begin
+        out_decoded_tdata_counter <= out_decoded_tdata_counter + 1;
+      end
+    end
+  end
+
+  fifo_short_2clk dpti_fifo (
+    .rst(ce_rst),
+    .wr_clk(ce_clk),
+    .din({24'd0,out_decoded_tlast,7'd0,out_decoded_tdata_counter}),
+    .wr_en(out_decoded_tvalid),
+    .full(),
+    .wr_data_count(),
+    .rd_clk(PROG_CLKO),
+    .dout(dpti_fifo_rd),
+    .rd_en(dpti_fifo_rd_en),
+    .empty(dpti_fifo_rd_empty),
+    .rd_data_count()
+  );
 
   /////////////////////////////////////////////////////////////
   //
