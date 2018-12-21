@@ -260,7 +260,7 @@ module axi_mrr_gateway #(
   fifo_short_2clk dpti_fifo (
     .rst(ce_rst),
     .wr_clk(ce_clk),
-    .din({24'd0,out_decoded_tlast,7'd0,out_decoded_tdata_counter}),
+    .din({24'd0,out_decoded_tlast,7'd0,out_decoded_tdata}),
     .wr_en(out_decoded_tvalid),
     .full(),
     .wr_data_count(),
