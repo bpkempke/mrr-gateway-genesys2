@@ -178,6 +178,9 @@ module axi_mrr_gateway #(
   `include "mrr_params.vh"
   `include "git_version.vh"
 
+  //TODO: Any other valid sources for 'clear' signal?
+  wire clear = 1'b0;
+
   /////////////////////////////////////////////////////////////
   //
   // DPTI (FT245) FIFO Interface
@@ -247,6 +250,7 @@ module axi_mrr_gateway #(
   end
 
   reg [31:0] out_decoded_tdata_counter;
+  wire ce_rst;
   always @(posedge ce_clk) begin
     if(ce_rst) begin
       out_decoded_tdata_counter <= 0;
@@ -260,15 +264,16 @@ module axi_mrr_gateway #(
   wire dpti_fifo_full;
   wire dpti_fifo_valid;
   wire [39:0] dpti_fifo_wr;
+  wire [31:0] dpti_fifo_unused;
   fifo_short_2clk dpti_fifo (
     .rst(ce_rst),
     .wr_clk(ce_clk),
-    .din({24'd0,dpti_fifo_wr}),
+    .din({32'd0,dpti_fifo_wr}),
     .wr_en(dpti_fifo_valid),
     .full(dpti_fifo_full),
     .wr_data_count(),
     .rd_clk(PROG_CLKO),
-    .dout(dpti_fifo_rd),
+    .dout({dpti_fifo_unused,dpti_fifo_rd}),
     .rd_en(dpti_fifo_rd_en),
     .empty(dpti_fifo_rd_empty),
     .rd_data_count()
@@ -447,7 +452,7 @@ module axi_mrr_gateway #(
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_reorder_factor_log2 = setting_primary_fft_len_log2-setting_primary_fft_len_decim_log2;
 
   reg [2:0] ce_rst_reg;
-  wire ce_rst = ce_rst_reg[2];
+  assign ce_rst = ce_rst_reg[2];
   always @(posedge ce_clk) begin
     ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in};
   end
@@ -474,9 +479,6 @@ module axi_mrr_gateway #(
 
   //TODO: Should this be assigned to anything??
   wire [15:0]    src_sid[NUM_OUTPUTS-1:0], next_dst_sid[NUM_OUTPUTS-1:0];
-
-  //TODO: Any other valid sources for 'clear' signal?
-  wire clear = 1'b0;
 
   wire [31:0]    sample_tdata;
   (* dont_touch="true",mark_debug="true"*) wire           sample_tlast, sample_tvalid, sample_tready, sample_tready_fft, sample_tready_iq;
@@ -1035,16 +1037,19 @@ module axi_mrr_gateway #(
   end
 
   wire [31:0] out_decoded_tdata_post;
+  wire [31:0] out_decoded_tdata;
+  wire [39:0] out_decoded_tdata_post_unused;
   wire out_decoded_tempty_post;
+  wire out_decoded_tlast, out_decoded_tvalid, out_decoded_tready;
   fifo_short_2clk output_samples_fifo (
     .rst(ce_rst),
     .wr_clk(ce_clk),
-    .din({32'd0,out_decoded_tdata}),
+    .din({40'd0,out_decoded_tdata}),
     .wr_en(out_decoded_tvalid),
     .full(),
     .wr_data_count(),
     .rd_clk(adc_clk),
-    .dout(out_decoded_tdata_post),
+    .dout({out_decoded_tdata_post_unused,out_decoded_tdata_post}),
     .rd_en(1'b1),
     .empty(out_decoded_tempty_post),
     .rd_data_count()
@@ -1058,10 +1063,8 @@ module axi_mrr_gateway #(
   assign out_data_q0   = (enable_reg[2]) ? out_decoded_tdata_post[15:0] : adc_data_q0;
 
   //A separate port is used to push out decoded data
-  wire [31:0]    out_decoded_tdata;
   wire pause_block;
   wire [127:0]   out_decoded_tuser = {2'd0,1'b0,1'b1,12'd0,16'd4,src_sid[1],next_dst_sid[1],64'd0};
-  wire           out_decoded_tlast, out_decoded_tvalid, out_decoded_tready;
   //chdr_framer #(.SIZE(8)) chdr_framer (
   //  .clk(ce_clk), .reset(ce_rst), .clear(clear | pause_block),
   //  .i_tdata(out_decoded_tdata), .i_tuser(out_decoded_tuser), .i_tlast(out_decoded_tlast), .i_tvalid(out_decoded_tvalid), .i_tready(out_decoded_tready),
