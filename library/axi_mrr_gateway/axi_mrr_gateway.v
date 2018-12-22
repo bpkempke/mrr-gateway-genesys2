@@ -257,12 +257,15 @@ module axi_mrr_gateway #(
     end
   end
 
+  wire dpti_fifo_full;
+  wire dpti_fifo_valid;
+  wire [39:0] dpti_fifo_wr;
   fifo_short_2clk dpti_fifo (
     .rst(ce_rst),
     .wr_clk(ce_clk),
-    .din({24'd0,out_decoded_tlast,7'd0,out_decoded_tdata}),
-    .wr_en(out_decoded_tvalid),
-    .full(),
+    .din({24'd0,dpti_fifo_wr}),
+    .wr_en(dpti_fifo_valid),
+    .full(dpti_fifo_full),
     .wr_data_count(),
     .rd_clk(PROG_CLKO),
     .dout(dpti_fifo_rd),
@@ -270,6 +273,123 @@ module axi_mrr_gateway #(
     .empty(dpti_fifo_rd_empty),
     .rd_data_count()
   );
+
+  //out_decoded_tlast,7'd0,out_decoded_tdata}),
+  //out_decoded_tvalid
+  localparam NUM_MUX_CHANNELS = 2;
+  localparam NUM_MUX_CHANNELS_LOG2 = 2;
+  wire [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_tvalids;
+  reg [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_treadies;
+  wire [39:0] dpti_fifo_pre_tdatas [NUM_MUX_CHANNELS-1:0];
+  reg [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_tvalids_saved;
+  reg [39:0] dpti_fifo_pre_tdatas_saved [NUM_MUX_CHANNELS-1:0];
+  reg [39:0] dpti_fifo_pre_tdata;
+  reg dpti_fifo_pre_tvalid;
+  axi_fifo #(
+    .WIDTH(40),
+    .SIZE(12))
+  dpti_fifo_pre (
+    .clk(ce_clk),
+    .reset(ce_rst),
+    .clear(clear),
+    .i_tdata(dpti_fifo_pre_tdata),
+    .i_tvalid(dpti_fifo_pre_tvalid),
+    .i_tready(),
+    .o_tdata(dpti_fifo_wr),
+    .o_tvalid(dpti_fifo_valid),
+    .o_tready(~dpti_fifo_full)
+  );
+
+  reg [NUM_MUX_CHANNELS_LOG2-1:0] dpti_fifo_pre_arb_idx;
+  reg dpti_fifo_pre_arb_valid;
+  integer arb_idx;
+  always @* begin
+    dpti_fifo_pre_arb_idx = 0;
+    dpti_fifo_pre_arb_valid = 1'b0;
+    for(arb_idx=0; arb_idx < NUM_MUX_CHANNELS; arb_idx=arb_idx+1) begin
+      if(dpti_fifo_pre_tvalids[arb_idx]) begin
+        dpti_fifo_pre_arb_valid = 1'b1;
+        dpti_fifo_pre_arb_idx = arb_idx;
+      end
+    end
+  end
+
+  localparam DPTI_PRE_IDLE = 0;
+  localparam DPTI_PRE_WAIT_ON_PATH = 1;
+  localparam DPTI_PRE_FLUSH_SAVED_DATA = 2;
+  reg [NUM_MUX_CHANNELS_LOG2-1:0] cur_pre_arb_idx, cur_pre_idx;
+  reg [1:0] dpti_fifo_pre_state, next_dpti_fifo_pre_state;
+  reg save_pre_arb_idx;
+  reg reset_pre_cur_idx;
+  reg incr_pre_cur_idx;
+
+  integer cur_idx;
+  always @(posedge ce_clk) begin
+    if(ce_rst) begin
+      cur_pre_arb_idx <= 0;
+      cur_pre_idx <= 0;
+      dpti_fifo_pre_state <= DPTI_PRE_IDLE;
+      for(cur_idx=0; cur_idx < NUM_MUX_CHANNELS; cur_idx=cur_idx+1) begin
+        dpti_fifo_pre_tvalids_saved[cur_idx] <= 0;
+        dpti_fifo_pre_tdatas_saved[cur_idx] <= 0;
+      end
+    end else begin
+      dpti_fifo_pre_state <= next_dpti_fifo_pre_state;
+      if(save_pre_arb_idx) begin
+        cur_pre_arb_idx <= dpti_fifo_pre_arb_idx;
+        for(cur_idx=0; cur_idx < NUM_MUX_CHANNELS; cur_idx=cur_idx+1) begin
+          dpti_fifo_pre_tvalids_saved[cur_idx] <= dpti_fifo_pre_tvalids[cur_idx];
+          dpti_fifo_pre_tdatas_saved[cur_idx] <= dpti_fifo_pre_tdatas[cur_idx];
+        end
+      end 
+      if(reset_pre_cur_idx) begin
+        cur_pre_idx <= 0;
+      end else if(incr_pre_cur_idx) begin
+        cur_pre_idx <= cur_pre_idx + 1;
+      end
+    end
+  end
+
+  always @* begin
+    next_dpti_fifo_pre_state = dpti_fifo_pre_state;
+    save_pre_arb_idx = 1'b0;
+    reset_pre_cur_idx = 1'b0;
+    incr_pre_cur_idx = 1'b0;
+    dpti_fifo_pre_tvalid = 1'b0;
+    dpti_fifo_pre_treadies = 0;
+    dpti_fifo_pre_tdata = 0;
+
+    case(dpti_fifo_pre_state)
+      DPTI_PRE_IDLE: begin
+        save_pre_arb_idx = 1'b1;
+        dpti_fifo_pre_treadies = {{NUM_MUX_CHANNELS}{1'b1}};
+        dpti_fifo_pre_tvalid = dpti_fifo_pre_arb_valid;
+        dpti_fifo_pre_tdata = dpti_fifo_pre_tdatas[dpti_fifo_pre_arb_idx];
+        if(dpti_fifo_pre_arb_valid) begin
+          next_dpti_fifo_pre_state = DPTI_PRE_WAIT_ON_PATH;
+        end
+      end
+
+      DPTI_PRE_WAIT_ON_PATH: begin
+        dpti_fifo_pre_treadies = (1 << cur_pre_arb_idx);
+        dpti_fifo_pre_tvalid = dpti_fifo_pre_tvalids[cur_pre_arb_idx];
+        dpti_fifo_pre_tdata = dpti_fifo_pre_tdatas[cur_pre_arb_idx];
+        if(~dpti_fifo_pre_tvalid) begin
+          reset_pre_cur_idx = 1'b1;
+          next_dpti_fifo_pre_state = DPTI_PRE_FLUSH_SAVED_DATA;
+        end
+      end
+
+      DPTI_PRE_FLUSH_SAVED_DATA: begin
+        incr_pre_cur_idx = 1'b1;
+        dpti_fifo_pre_tvalid = (dpti_fifo_pre_tvalids_saved[cur_pre_idx] == 1'b1) && (cur_pre_idx != cur_pre_arb_idx);
+        dpti_fifo_pre_tdata = dpti_fifo_pre_tdatas_saved[cur_pre_idx];
+        if(cur_pre_idx == NUM_MUX_CHANNELS-1) begin
+          next_dpti_fifo_pre_state = DPTI_PRE_IDLE;
+        end
+      end
+    endcase
+  end
 
   /////////////////////////////////////////////////////////////
   //
@@ -942,7 +1062,6 @@ module axi_mrr_gateway #(
   wire pause_block;
   wire [127:0]   out_decoded_tuser = {2'd0,1'b0,1'b1,12'd0,16'd4,src_sid[1],next_dst_sid[1],64'd0};
   wire           out_decoded_tlast, out_decoded_tvalid, out_decoded_tready;
-  assign out_decoded_tready = 1'b1;
   //chdr_framer #(.SIZE(8)) chdr_framer (
   //  .clk(ce_clk), .reset(ce_rst), .clear(clear | pause_block),
   //  .i_tdata(out_decoded_tdata), .i_tuser(out_decoded_tuser), .i_tlast(out_decoded_tlast), .i_tvalid(out_decoded_tvalid), .i_tready(out_decoded_tready),
@@ -952,7 +1071,6 @@ module axi_mrr_gateway #(
   wire [31:0]    out_corr_tdata;
   wire [127:0]   out_corr_tuser = {2'd0,1'b0,1'b1,12'd0,16'd4,src_sid[0],next_dst_sid[0],64'd0};
   wire           out_corr_tlast, out_corr_tvalid, out_corr_tready;
-  assign out_corr_tready = 1'b1;
   //chdr_framer #(.SIZE(8)) chdr_framer2 (
   //  .clk(ce_clk), .reset(ce_rst), .clear(clear | pause_block),
   //  .i_tdata(out_corr_tdata), .i_tuser(out_corr_tuser), .i_tlast(out_corr_tlast), .i_tvalid(out_corr_tvalid), .i_tready(out_corr_tready),
@@ -1371,6 +1489,32 @@ module axi_mrr_gateway #(
 
 //assign debug = {adc_clk, adc_enable_i0, adc_valid_i0, adc_enable_q0, adc_valid_q0, out_enable_i0, out_valid_i0, out_enable_q0, out_valid_q0, sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, fft_buff_o_tvalid};
 
-assign debug = {PROG_D,PROG_CLKO,PROG_OEN,PROG_RDN,PROG_RXFN,PROG_SIWUN,PROG_SPIEN,PROG_TXEN,PROG_WRN};
+//assign debug = {PROG_D,PROG_CLKO,PROG_OEN,PROG_RDN,PROG_RXFN,PROG_SIWUN,PROG_SPIEN,PROG_TXEN,PROG_WRN};
+  assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_tvalids, dpti_fifo_pre_treadies};
+
+  wire [31:0] out_decoded_buff_tdata;
+  wire out_decoded_buff_tlast;
+  wire out_decoded_buff_tvalid;
+  wire out_decoded_buff_tready;
+  axi_fifo #(
+    .WIDTH(33),
+    .SIZE(8))
+  decoded_stream_buffer (
+    .clk(ce_clk),
+    .reset(ce_rst),
+    .clear(clear),
+    .i_tdata({out_decoded_tlast,out_decoded_tdata}),
+    .i_tvalid(out_decoded_tvalid),
+    .i_tready(out_decoded_tready),
+    .o_tdata({out_decoded_buff_tlast,out_decoded_buff_tdata}),
+    .o_tvalid(out_decoded_buff_tvalid),
+    .o_tready(out_decoded_buff_tready)
+  );
+
+  assign dpti_fifo_pre_tvalids = {out_decoded_buff_tvalid, out_corr_tvalid};
+  assign out_decoded_buff_tready = dpti_fifo_pre_treadies[1];
+  assign out_corr_tready = dpti_fifo_pre_treadies[0];
+  assign dpti_fifo_pre_tdatas[1] = {out_decoded_buff_tlast, 7'd1, out_decoded_buff_tdata};
+  assign dpti_fifo_pre_tdatas[0] = {out_corr_tlast, 7'd0, out_corr_tdata};
 
 endmodule
