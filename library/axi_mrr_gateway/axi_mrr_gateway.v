@@ -503,10 +503,15 @@ module axi_mrr_gateway #(
         adc_valid <= 1'b0;
       end else begin
         if(adc_enable_i0 & adc_valid_i0 & enable_sync) begin
-          input_sample_counter <= input_sample_counter + 1;
+          if(input_sample_counter == PRIMARY_FFT_LEN-1)
+            input_sample_counter <= 0;
+          else
+            input_sample_counter <= input_sample_counter + 1;
           adc_i_in_latched <= adc_data_i0;
           adc_valid <= 1'b1;
           adc_last <= (input_sample_counter == PRIMARY_FFT_LEN-1);
+        end else begin
+          adc_valid <= 1'b0;
         end
 
         if(adc_enable_q0 & adc_valid_q0 & enable_sync) begin
