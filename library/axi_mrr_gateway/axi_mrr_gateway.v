@@ -1127,7 +1127,7 @@ module axi_mrr_gateway #(
   wire [CORR_WIDTH-1:0] threshold;
 
   setting_reg #(
-    .my_addr(SR_THRE), .awidth(8), .width(CORR_WIDTH), .at_reset(25))
+    .my_addr(SR_THRE), .awidth(8), .width(CORR_WIDTH), .at_reset(2500))
   sr_thre (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(threshold), .changed());
