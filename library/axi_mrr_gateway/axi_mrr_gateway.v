@@ -190,19 +190,25 @@ module axi_mrr_gateway #(
   wire dpti_fifo_rd_empty;
   reg dpti_shift_reset;
   reg dpti_shift_en;
+  reg dpti_rd_push;
+  reg next_oen;
+  reg next_rdn;
+  reg dpti_shift_rd_out;
   reg [2:0] dpti_state, next_dpti_state;
   reg [1:0] enable_last;
   reg [2:0] dpti_shift_ctr;
   reg [39:0] dpti_d_shift;
   wire [39:0] dpti_fifo_rd;
+  reg [39:0] dpti_shift_rd;
+  reg [2:0] dpti_shift_rd_ctr;
   assign PROG_D = (PROG_OEN) ? dpti_d_shift[39-:8] : 8'hzz;
 
   localparam DPTI_STATE_IDLE = 0;
   localparam DPTI_STATE_TX_WORD = 1;
+  localparam DPTI_STATE_RX_WORD1 = 2;
+  localparam DPTI_STATE_RX_WORD2 = 3;
 
   always @(posedge PROG_CLKO) begin
-    PROG_OEN <= 1'b1;
-    PROG_RDN <= 1'b1;
     PROG_SIWUN <= 1'b1;
     PROG_SPIEN <= 1'b1;
     enable_last <= {enable_last[0], enable};
@@ -210,7 +216,14 @@ module axi_mrr_gateway #(
     if(~enable_last[1]) begin
       dpti_d_shift <= 0;
       dpti_state <= DPTI_STATE_IDLE;
+      dpti_shift_rd_ctr <= 0;
+      dpti_rd_push <= 1'b0;
+      dpti_shift_rd <= 0;
+      PROG_OEN <= 1'b1;
+      PROG_RDN <= 1'b1;
     end else begin
+      PROG_OEN <= next_oen;
+      PROG_RDN <= next_rdn;
       dpti_state <= next_dpti_state;
       if(dpti_shift_reset) begin
         dpti_d_shift <= dpti_fifo_rd;
@@ -219,20 +232,35 @@ module axi_mrr_gateway #(
         dpti_d_shift <= {dpti_d_shift[31:0], 8'd0};
         dpti_shift_ctr <= dpti_shift_ctr + 1;
       end
+
+      dpti_rd_push <= 1'b0;
+      if(dpti_shift_rd_out) begin
+        dpti_shift_rd_ctr <= dpti_shift_rd_ctr + 1;
+        dpti_shift_rd <= {dpti_shift_rd[31:0], PROG_D};
+        if(dpti_shift_rd_ctr == 4) begin
+          dpti_shift_rd_ctr <= 0;
+          dpti_rd_push <= 1'b1;
+        end
+      end
     end
   end
 
   always @* begin
     next_dpti_state = dpti_state;
+    next_oen = 1'b1;
+    next_rdn = 1'b1;
     dpti_shift_reset = 1'b0;
     dpti_shift_en = 1'b0;
+    dpti_shift_rd_out = 1'b0;
     dpti_fifo_rd_en = 1'b0;
     PROG_WRN = 1'b1;
     case(dpti_state)
 
       DPTI_STATE_IDLE: begin
         dpti_shift_reset = 1'b1;
-        if(~dpti_fifo_rd_empty) begin
+        if(~PROG_RXFN) begin
+          next_dpti_state = DPTI_STATE_RX_WORD1;
+        end else if(~dpti_fifo_rd_empty) begin
           next_dpti_state = DPTI_STATE_TX_WORD;
         end
       end
@@ -243,6 +271,20 @@ module axi_mrr_gateway #(
         dpti_shift_reset = dpti_shift_en & (dpti_shift_ctr == 3'd4);
         dpti_fifo_rd_en = dpti_shift_en & (dpti_shift_ctr == 3'd0);
         if(dpti_shift_reset & dpti_fifo_rd_empty) begin
+          next_dpti_state = DPTI_STATE_IDLE;
+        end
+      end
+
+      DPTI_STATE_RX_WORD1: begin
+        next_oen = 1'b0;
+        next_dpti_state = DPTI_STATE_RX_WORD2;
+      end
+
+      DPTI_STATE_RX_WORD2: begin
+        next_oen = 1'b0;
+        next_rdn = 1'b0;
+        dpti_shift_rd_out = ~PROG_RXFN;
+        if(PROG_RXFN) begin
           next_dpti_state = DPTI_STATE_IDLE;
         end
       end
@@ -276,6 +318,24 @@ module axi_mrr_gateway #(
     .dout({dpti_fifo_unused,dpti_fifo_rd}),
     .rd_en(dpti_fifo_rd_en),
     .empty(dpti_fifo_rd_empty),
+    .rd_data_count()
+  );
+
+  wire [31:0] set_data;
+  wire [7:0]  set_addr;
+  wire        set_empty;
+  wire        set_stb = ~set_empty;
+  fifo_short_2clk dpti_rd_fifo (
+    .rst(ce_rst),
+    .wr_clk(PROG_CLKO),
+    .din(dpti_shift_rd),
+    .wr_en(dpti_rd_push),
+    .full(),
+    .wr_data_count(),
+    .rd_clk(ce_clk),
+    .dout({set_addr,set_data}),
+    .rd_en(1'b1),
+    .empty(set_empty),
     .rd_data_count()
   );
 
@@ -462,9 +522,6 @@ module axi_mrr_gateway #(
   // RFNoC Shell
   //
   ////////////////////////////////////////////////////////////
-  wire [31:0] set_data;
-  wire [7:0]  set_addr;
-  wire        set_stb;
   reg  [63:0] rb_data;
   wire [7:0]  rb_addr;
 
@@ -1498,7 +1555,8 @@ module axi_mrr_gateway #(
 //assign debug = {adc_clk, adc_enable_i0, adc_valid_i0, adc_enable_q0, adc_valid_q0, out_enable_i0, out_valid_i0, out_enable_q0, out_valid_q0, sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, fft_buff_o_tvalid};
 
 //assign debug = {PROG_D,PROG_CLKO,PROG_OEN,PROG_RDN,PROG_RXFN,PROG_SIWUN,PROG_SPIEN,PROG_TXEN,PROG_WRN};
-  assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_tvalids, dpti_fifo_pre_treadies};
+//assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_tvalids, dpti_fifo_pre_treadies};
+  assign debug = primary_fft_mask_temp[15:0];
 
   wire [31:0] out_decoded_buff_tdata;
   wire out_decoded_buff_tlast;
