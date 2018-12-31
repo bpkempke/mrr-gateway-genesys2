@@ -283,8 +283,8 @@ module axi_mrr_gateway #(
       DPTI_STATE_RX_WORD2: begin
         next_oen = 1'b0;
         next_rdn = 1'b0;
-        dpti_shift_rd_out = ~PROG_RXFN;
-        if(PROG_RXFN) begin
+        dpti_shift_rd_out = ((PROG_RDN == 1'b0) && (PROG_RXFN == 1'b0));
+        if((dpti_shift_rd_out == 1'b1) && (dpti_shift_rd_ctr == 4)) begin
           next_dpti_state = DPTI_STATE_IDLE;
         end
       end
