@@ -220,10 +220,8 @@ module axi_mrr_gateway #(
       dpti_rd_push <= 1'b0;
       dpti_shift_rd <= 0;
       PROG_OEN <= 1'b1;
-      PROG_RDN <= 1'b1;
     end else begin
       PROG_OEN <= next_oen;
-      PROG_RDN <= next_rdn;
       dpti_state <= next_dpti_state;
       if(dpti_shift_reset) begin
         dpti_d_shift <= dpti_fifo_rd;
@@ -246,6 +244,7 @@ module axi_mrr_gateway #(
   end
 
   always @* begin
+    PROG_RDN = 1'b1;
     next_dpti_state = dpti_state;
     next_oen = 1'b1;
     next_rdn = 1'b1;
@@ -282,9 +281,9 @@ module axi_mrr_gateway #(
 
       DPTI_STATE_RX_WORD2: begin
         next_oen = 1'b0;
-        next_rdn = 1'b0;
+        PROG_RDN = 1'b0;
         dpti_shift_rd_out = ((PROG_RDN == 1'b0) && (PROG_RXFN == 1'b0));
-        if((dpti_shift_rd_out == 1'b1) && (dpti_shift_rd_ctr == 4)) begin
+        if(PROG_RXFN) begin//(dpti_shift_rd_out == 1'b1) && (dpti_shift_rd_ctr == 4)) begin
           next_dpti_state = DPTI_STATE_IDLE;
         end
       end
@@ -548,25 +547,31 @@ module axi_mrr_gateway #(
   reg [15:0] adc_q_in_latched;
   reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] input_sample_counter;
 
+  wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len;
+  reg [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len_sync[1:0];
   always @(posedge adc_clk) begin
     if(ce_rst) begin
+      setting_primary_fft_len_sync[0] <= 0;
+      setting_primary_fft_len_sync[1] <= 0;
       input_sample_counter <= 0;
       adc_valid <= 1'b0;
       adc_last <= 1'b0;
       adc_i_in_latched <= 0;
       adc_q_in_latched <= 0;
     end else begin
+      setting_primary_fft_len_sync[0] <= setting_primary_fft_len;
+      setting_primary_fft_len_sync[1] <= setting_primary_fft_len_sync[0];
       if(~enable_sync) begin
         adc_valid <= 1'b0;
       end else begin
         if(adc_enable_i0 & adc_valid_i0 & enable_sync) begin
-          if(input_sample_counter == PRIMARY_FFT_LEN-1)
+          if(input_sample_counter == setting_primary_fft_len_sync[1]-1)
             input_sample_counter <= 0;
           else
             input_sample_counter <= input_sample_counter + 1;
           adc_i_in_latched <= adc_data_i0;
           adc_valid <= 1'b1;
-          adc_last <= (input_sample_counter == PRIMARY_FFT_LEN-1);
+          adc_last <= (input_sample_counter == setting_primary_fft_len_sync[1]-1);
         end else begin
           adc_valid <= 1'b0;
         end
@@ -1312,7 +1317,6 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_resample_frac_temp), .changed(setting_resample_frac_temp_changed));
 
-  wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len;
   mrr_log2_expand prim_len_expand (
     .clk(ce_clk),
     .num_log2_in(setting_primary_fft_len_log2),
@@ -1556,7 +1560,7 @@ module axi_mrr_gateway #(
 
 //assign debug = {PROG_D,PROG_CLKO,PROG_OEN,PROG_RDN,PROG_RXFN,PROG_SIWUN,PROG_SPIEN,PROG_TXEN,PROG_WRN};
 //assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_tvalids, dpti_fifo_pre_treadies};
-  assign debug = primary_fft_mask_temp[15:0];
+assign debug = primary_fft_mask_temp[15:0];
 
   wire [31:0] out_decoded_buff_tdata;
   wire out_decoded_buff_tlast;
