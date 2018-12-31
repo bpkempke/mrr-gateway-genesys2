@@ -208,12 +208,12 @@ module axi_mrr_gateway #(
   localparam DPTI_STATE_RX_WORD1 = 2;
   localparam DPTI_STATE_RX_WORD2 = 3;
 
-  always @(posedge PROG_CLKO) begin
+  always @(posedge PROG_CLKO or posedge ce_rst) begin
     PROG_SIWUN <= 1'b1;
     PROG_SPIEN <= 1'b1;
     enable_last <= {enable_last[0], enable};
 
-    if(~enable_last[1]) begin
+    if(ce_rst) begin
       dpti_d_shift <= 0;
       dpti_state <= DPTI_STATE_IDLE;
       dpti_shift_rd_ctr <= 0;
@@ -1559,8 +1559,8 @@ module axi_mrr_gateway #(
 //assign debug = {adc_clk, adc_enable_i0, adc_valid_i0, adc_enable_q0, adc_valid_q0, out_enable_i0, out_valid_i0, out_enable_q0, out_valid_q0, sample_tvalid, out_tvalid, sample_buff_tvalid, replay_sample_buff_tvalid, fft_data_o_tvalid, fft_mag_o_tvalid, fft_buff_o_tvalid};
 
 //assign debug = {PROG_D,PROG_CLKO,PROG_OEN,PROG_RDN,PROG_RXFN,PROG_SIWUN,PROG_SPIEN,PROG_TXEN,PROG_WRN};
-//assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_tvalids, dpti_fifo_pre_treadies};
-assign debug = primary_fft_mask_temp[15:0];
+assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_tvalids, dpti_fifo_pre_treadies};
+//assign debug = primary_fft_mask_temp[15:0];
 
   wire [31:0] out_decoded_buff_tdata;
   wire out_decoded_buff_tlast;
