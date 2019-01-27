@@ -89,6 +89,7 @@ setting_reorder_factor_log2,
 setting_reorder_factor_mask,
 setting_mod_sync_frames_log2,
 setting_mod_sync_frames_mask,
+force_full_size,
 debug,
 debug2
 );
@@ -201,6 +202,9 @@ debug2
    input [PRIMARY_FFT_MAX_LEN_LOG2-1:0] setting_reorder_factor_mask;
    input [SECONDARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_mod_sync_frames_log2;
    input [SECONDARY_FFT_MAX_LEN_LOG2:0] setting_mod_sync_frames_mask;
+
+   input force_full_size;
+
    //
    // Debug Bus
    //
@@ -252,6 +256,10 @@ debug2
 
    reg empty_sync;
    synchronizer #(.INITIAL_VAL(1'b1)) sync_empty_sync_inst (.clk(bus_clk), .rst(1'b0), .in(empty_sync), .out(empty));
+
+
+   wire force_full_size_sync;
+   synchronizer #(.INITIAL_VAL(1'b0)) sync_full_size_inst (.clk(dram_clk), .rst(1'b0), .in(force_full_size), .out(force_full_size_sync));
 
    // SETTING: Readback Address Register
    // Fields:
@@ -338,8 +346,8 @@ debug2
    assign set_suppress_en = 1'b0;
    assign set_supress_threshold = 0;
    assign set_fifo_base_addr = DEFAULT_BASE;
-   assign set_fifo_addr_mask = DEFAULT_MASK;
-   assign set_fifo_addr_mask_bar = ~DEFAULT_MASK;
+   assign set_fifo_addr_mask = (force_full_size_sync) ? 30'h20000000 : DEFAULT_MASK;
+   assign set_fifo_addr_mask_bar = (force_full_size_sync) ? 30'h1fffffff : ~DEFAULT_MASK;
 
    //
    // Input side declarations

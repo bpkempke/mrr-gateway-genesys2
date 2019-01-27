@@ -1,7 +1,7 @@
 
 module axi_mrr_gateway #(
   parameter NUM_FIFOS = 2,                      //Number of FIFOs that share the AXI4 memory space (max 4)
-  parameter [NUM_FIFOS*30-1:0] DEFAULT_FIFO_BASE = {30'h02000000, 30'h00000000}, //Default base addr for each FIFO (configurable via setting reg)
+  parameter [NUM_FIFOS*30-1:0] DEFAULT_FIFO_BASE = {30'h00000000, 30'h02000000}, //Default base addr for each FIFO (configurable via setting reg)
   parameter [NUM_FIFOS*30-1:0] DEFAULT_FIFO_SIZE = {30'h01FFFFFF, 30'h01FFFFFF}, //Default size of each FIFO (configurable via setting reg)
   parameter [NUM_FIFOS*12-1:0] DEFAULT_BURST_TIMEOUT = {12'd280, 12'd280}, //Timeout (in memory clock cycles) for issuing smaller than optimal bursts
   parameter EXTENDED_DRAM_BIST = 1              //Prune out additional BIST features for production
@@ -186,6 +186,7 @@ module axi_mrr_gateway #(
   // DPTI (FT245) FIFO Interface
   //
   ////////////////////////////////////////////////////////////
+  wire record_en;
   reg dpti_fifo_rd_en;
   wire dpti_fifo_rd_empty;
   reg dpti_shift_reset;
@@ -340,7 +341,7 @@ module axi_mrr_gateway #(
 
   //out_decoded_tlast,7'd0,out_decoded_tdata}),
   //out_decoded_tvalid
-  localparam NUM_MUX_CHANNELS = 2;
+  localparam NUM_MUX_CHANNELS = 3;
   localparam NUM_MUX_CHANNELS_LOG2 = 2;
   wire [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_tvalids;
   reg [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_treadies;
@@ -634,7 +635,7 @@ module axi_mrr_gateway #(
     .reset(ce_rst),
     .clear(clear),
     .i_tdata({sample_tlast,sample_tdata}),
-    .i_tvalid(sample_tvalid & sample_tready),
+    .i_tvalid(sample_tvalid & sample_tready & ~record_en),
     .i_tready(),
     .o_tdata({sample_buff_tlast,sample_buff_tdata}),
     .o_tvalid(sample_buff_tvalid),
@@ -691,7 +692,7 @@ module axi_mrr_gateway #(
 
   axi_fft_un inst_axi_fft (
     .aclk(ce_clk), .aresetn(~rst_fft),
-    .s_axis_data_tvalid(sample_tvalid & sample_tready),
+    .s_axis_data_tvalid(sample_tvalid & sample_tready & ~record_en),
     .s_axis_data_tready(sample_tready_fft),
     .s_axis_data_tlast(sample_tlast),
     .s_axis_data_tdata(sample_tdata),
@@ -911,6 +912,9 @@ module axi_mrr_gateway #(
         .setting_reorder_factor_mask(setting_reorder_factor_mask),
         .setting_mod_sync_frames_log2(setting_secondary_fft_len_log2),
         .setting_mod_sync_frames_mask(setting_secondary_fft_len_mask),
+
+        .force_full_size(1'b0),
+
         //
         // Debug
         //
@@ -978,6 +982,7 @@ module axi_mrr_gateway #(
   wire iq_sync_ack;
   wire iq_flush_req;
   wire iq_flush_done;
+  wire dram_force_full_size;
   wire [63:0] dram_iq_buffer_debug, dram_iq_buffer_debug2;
   localparam j = 1;
   mrr_dram_fft_buffer #(
@@ -1056,7 +1061,7 @@ module axi_mrr_gateway #(
         //
         .i_tdata        ({32'd0,sample_tdata}),
         .i_tlast        (sample_tlast),
-        .i_tvalid       (sample_tvalid & sample_tready),
+        .i_tvalid       (sample_tvalid & (sample_tready | record_en)),
         .i_tready       (sample_tready_iq),
         //
         // CHDR friendly AXI Stream output
@@ -1090,6 +1095,10 @@ module axi_mrr_gateway #(
         .setting_reorder_factor_mask(0),
         .setting_mod_sync_frames_log2(setting_secondary_fft_len_log2),
         .setting_mod_sync_frames_mask(setting_secondary_fft_len_mask),
+
+        //Full size used for prompting buffering of recorded samples
+        .force_full_size(dram_force_full_size),
+
         //
         // Debug
         //
@@ -1178,6 +1187,7 @@ module axi_mrr_gateway #(
   localparam SR_PRIMARY_FFT_LEN_LOG2 = 157;
   localparam SR_PRIMARY_FFT_LEN_DECIM_LOG2 = 158;
   localparam SR_SECONDARY_FFT_LEN_LOG2 = 159;
+  localparam SR_RECORD_EN = 160;
   localparam SR_CORR_WAIT_LEN = 164;
 
   setting_reg #(
@@ -1362,6 +1372,13 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_secondary_fft_len_log2), .changed(setting_secondary_fft_len_log2_changed));
 
+  assign dram_force_full_size = record_en;
+  setting_reg #(
+      .my_addr(SR_RECORD_EN), .awidth(8), .width(1), .at_reset(1'b0))
+  sr_record_en (
+    .clk(ce_clk), .rst(ce_rst),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(record_en), .changed());
+
   wire [PRIMARY_FFT_MAX_LEN_DECIM_LOG2+SECONDARY_FFT_MAX_LEN_LOG2:0] setting_hist_len;
   mrr_log2_expand hist_len_expand (
     .clk(ce_clk),
@@ -1459,21 +1476,13 @@ module axi_mrr_gateway #(
       end
   end
   
-
-  ////////////////////////////////////////////////////////////
-  //
-  // User code
-  //
-  ////////////////////////////////////////////////////////////
-  localparam PULSE_NUM = 31;
-  localparam SMAX =31; //2*15 +1
-  localparam RakeIdxWidth = 14;
-
   // Control Source Unused
   assign cmdout_tdata  = 64'd0;
   assign cmdout_tlast  = 1'b0;
   assign cmdout_tvalid = 1'b0;
   assign ackin_tready  = 1'b1;
+
+  wire replay_sample_buff_tready_receiver;
 
    mrr_basic_header #(
     .CORR_VAL_WIDTH(CORR_WIDTH)
@@ -1508,7 +1517,7 @@ module axi_mrr_gateway #(
         .i_replay_tdata_q(replay_sample_buff_tdata[15:0]),
         .i_replay_tvalid(replay_sample_buff_tvalid),
         .i_replay_empty(replay_sample_buff_empty),
-    	.i_replay_tready(replay_sample_buff_tready),
+    	.i_replay_tready(replay_sample_buff_tready_receiver),
         .i_replay_tlast(replay_sample_buff_tlast),
         .i_tdata_fft_shift(fft_norm_sq_shift),
         .i_tdata_fft_shift_valid(fft_norm_sq_shift_valid),
@@ -1581,9 +1590,14 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
     .o_tready(out_decoded_buff_tready)
   );
 
-  assign dpti_fifo_pre_tvalids = {out_decoded_buff_tvalid, out_corr_tvalid};
+  wire record_tvalid = (record_en) ? replay_sample_buff_tvalid : 1'b0;
+  wire record_tlast = replay_sample_buff_tlast;
+
+  assign dpti_fifo_pre_tvalids = {record_tvalid, out_decoded_buff_tvalid, out_corr_tvalid};
+  assign replay_sample_buff_tready = (record_en) ? dpti_fifo_pre_treadies[2] : replay_sample_buff_tready_receiver;
   assign out_decoded_buff_tready = dpti_fifo_pre_treadies[1];
   assign out_corr_tready = dpti_fifo_pre_treadies[0];
+  assign dpti_fifo_pre_tdatas[2] = {record_tlast, 7'd2, replay_sample_buff_tdata};
   assign dpti_fifo_pre_tdatas[1] = {out_decoded_buff_tlast, 7'd1, out_decoded_buff_tdata};
   assign dpti_fifo_pre_tdatas[0] = {out_corr_tlast, 7'd0, out_corr_tdata};
 
