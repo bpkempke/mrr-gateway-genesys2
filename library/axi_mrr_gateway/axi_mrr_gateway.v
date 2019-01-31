@@ -350,6 +350,8 @@ module axi_mrr_gateway #(
   reg [39:0] dpti_fifo_pre_tdatas_saved [NUM_MUX_CHANNELS-1:0];
   reg [39:0] dpti_fifo_pre_tdata;
   reg dpti_fifo_pre_tvalid;
+  wire dpti_fifo_pre_tready;
+  reg [15:0] dpti_fifo_pre_tdata_count;
   axi_fifo #(
     .WIDTH(40),
     .SIZE(12))
@@ -357,9 +359,9 @@ module axi_mrr_gateway #(
     .clk(ce_clk),
     .reset(ce_rst),
     .clear(clear),
-    .i_tdata(dpti_fifo_pre_tdata),
+    .i_tdata(dpti_fifo_pre_tdata),//{dpti_fifo_pre_tdata[39:16],dpti_fifo_pre_tdata_count}),
     .i_tvalid(dpti_fifo_pre_tvalid),
-    .i_tready(),
+    .i_tready(dpti_fifo_pre_tready),
     .o_tdata(dpti_fifo_wr),
     .o_tvalid(dpti_fifo_valid),
     .o_tready(~dpti_fifo_full)
@@ -387,18 +389,31 @@ module axi_mrr_gateway #(
   reg save_pre_arb_idx;
   reg reset_pre_cur_idx;
   reg incr_pre_cur_idx;
+  reg [31:0] record_count;
 
   integer cur_idx;
   always @(posedge ce_clk) begin
     if(ce_rst) begin
+      dpti_fifo_pre_tdata_count <= 0;
       cur_pre_arb_idx <= 0;
       cur_pre_idx <= 0;
       dpti_fifo_pre_state <= DPTI_PRE_IDLE;
+      record_count <= 0;
       for(cur_idx=0; cur_idx < NUM_MUX_CHANNELS; cur_idx=cur_idx+1) begin
         dpti_fifo_pre_tvalids_saved[cur_idx] <= 0;
         dpti_fifo_pre_tdatas_saved[cur_idx] <= 0;
       end
     end else begin
+      if(~record_en) begin
+          record_count <= 0;
+      end else begin
+          if(dpti_fifo_pre_tvalids[2] & dpti_fifo_pre_treadies[2]) begin
+              record_count <= record_count + 1;
+          end
+      end
+      if(dpti_fifo_pre_tvalid & dpti_fifo_pre_tready) begin
+          dpti_fifo_pre_tdata_count <= dpti_fifo_pre_tdata_count + 1;
+      end
       dpti_fifo_pre_state <= next_dpti_fifo_pre_state;
       if(save_pre_arb_idx) begin
         cur_pre_arb_idx <= dpti_fifo_pre_arb_idx;
@@ -427,16 +442,16 @@ module axi_mrr_gateway #(
     case(dpti_fifo_pre_state)
       DPTI_PRE_IDLE: begin
         save_pre_arb_idx = 1'b1;
-        dpti_fifo_pre_treadies = {{NUM_MUX_CHANNELS}{1'b1}};
+        dpti_fifo_pre_treadies = {{NUM_MUX_CHANNELS}{dpti_fifo_pre_tready}};
         dpti_fifo_pre_tvalid = dpti_fifo_pre_arb_valid;
         dpti_fifo_pre_tdata = dpti_fifo_pre_tdatas[dpti_fifo_pre_arb_idx];
-        if(dpti_fifo_pre_arb_valid) begin
+        if(dpti_fifo_pre_arb_valid & dpti_fifo_pre_tready) begin
           next_dpti_fifo_pre_state = DPTI_PRE_WAIT_ON_PATH;
         end
       end
 
       DPTI_PRE_WAIT_ON_PATH: begin
-        dpti_fifo_pre_treadies = (1 << cur_pre_arb_idx);
+        dpti_fifo_pre_treadies = ({{{NUM_MUX_CHANNELS-1}{1'b0}},dpti_fifo_pre_tready} << cur_pre_arb_idx);
         dpti_fifo_pre_tvalid = dpti_fifo_pre_tvalids[cur_pre_arb_idx];
         dpti_fifo_pre_tdata = dpti_fifo_pre_tdatas[cur_pre_arb_idx];
         if(~dpti_fifo_pre_tvalid) begin
@@ -596,7 +611,7 @@ module axi_mrr_gateway #(
     .wr_data_count(),
     .rd_clk(ce_clk),
     .dout({fifo_unused,sample_tlast,sample_tdata}),
-    .rd_en(sample_tready),
+    .rd_en(sample_tready | (sample_tready_iq & record_en)),
     .empty(sample_fifo_empty),
     .rd_data_count()
   );
@@ -1188,7 +1203,9 @@ module axi_mrr_gateway #(
   localparam SR_PRIMARY_FFT_LEN_DECIM_LOG2 = 158;
   localparam SR_SECONDARY_FFT_LEN_LOG2 = 159;
   localparam SR_RECORD_EN = 160;
+  //localparam SR_USER_REG_BASE = 160; (DDR control registers: 160-163)
   localparam SR_CORR_WAIT_LEN = 164;
+  localparam SR_RECORD_LEN = 165;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1394,6 +1411,13 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(corr_wait_len), .changed());
 
+  wire [31:0] record_len;
+  setting_reg #(
+      .my_addr(SR_RECORD_LEN), .awidth(8), .width(32), .at_reset(8))
+  sr_record_len (
+    .clk(ce_clk), .rst(ce_rst),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(record_len), .changed());
+
 
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
@@ -1464,17 +1488,17 @@ module axi_mrr_gateway #(
     endcase
   end
 
-  (* dont_touch="true",mark_debug="true"*) reg [15:0] packet_length;
-  always @(posedge ce_clk) begin
-      if(ce_rst | clear) begin
-          packet_length <= 0;
-      end else begin
-          if(sample_tlast)
-              packet_length <= 0;
-          else if(sample_tvalid & sample_tready_fft)
-              packet_length <= packet_length + 1;
-      end
-  end
+  //(* dont_touch="true",mark_debug="true"*) reg [15:0] packet_length;
+  //always @(posedge ce_clk) begin
+  //    if(ce_rst | clear) begin
+  //        packet_length <= 0;
+  //    end else begin
+  //        if(sample_tlast)
+  //            packet_length <= 0;
+  //        else if(sample_tvalid & sample_tready_fft)
+  //            packet_length <= packet_length + 1;
+  //    end
+  //end
   
   // Control Source Unused
   assign cmdout_tdata  = 64'd0;
@@ -1590,7 +1614,7 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
     .o_tready(out_decoded_buff_tready)
   );
 
-  wire record_tvalid = (record_en) ? replay_sample_buff_tvalid : 1'b0;
+  wire record_tvalid = ((record_en == 1'b1) && (record_count < record_len)) ? replay_sample_buff_tvalid : 1'b0;
   wire record_tlast = replay_sample_buff_tlast;
 
   assign dpti_fifo_pre_tvalids = {record_tvalid, out_decoded_buff_tvalid, out_corr_tvalid};
