@@ -552,15 +552,18 @@ module axi_mrr_gateway #(
   //TODO: Should this be assigned to anything??
   wire [15:0]    src_sid[NUM_OUTPUTS-1:0], next_dst_sid[NUM_OUTPUTS-1:0];
 
-  wire [31:0]    sample_tdata;
+  wire [63:0]    sample_tdata;
   (* dont_touch="true",mark_debug="true"*) wire           sample_tlast, sample_tvalid, sample_tready, sample_tready_fft, sample_tready_iq;
   assign sample_tready = sample_tready_fft & sample_tready_iq;
 
   reg adc_last;
   reg adc_valid;
+  reg adc_ping_pong;
   wire enable_sync;
   reg [15:0] adc_i_in_latched;
   reg [15:0] adc_q_in_latched;
+  reg [15:0] adc_i_in_latched_last;
+  reg [15:0] adc_q_in_latched_last;
   reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] input_sample_counter;
 
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len;
@@ -574,6 +577,9 @@ module axi_mrr_gateway #(
       adc_last <= 1'b0;
       adc_i_in_latched <= 0;
       adc_q_in_latched <= 0;
+      adc_i_in_latched_last <= 0;
+      adc_q_in_latched_last <= 0;
+      adc_ping_pong <= 1'b0;
     end else begin
       setting_primary_fft_len_sync[0] <= setting_primary_fft_len;
       setting_primary_fft_len_sync[1] <= setting_primary_fft_len_sync[0];
@@ -586,7 +592,9 @@ module axi_mrr_gateway #(
           else
             input_sample_counter <= input_sample_counter + 1;
           adc_i_in_latched <= adc_data_i0;
-          adc_valid <= 1'b1;
+          adc_i_in_latched_last <= adc_i_in_latched;
+          adc_ping_pong <= ~adc_ping_pong;
+          adc_valid <= (record_en) ? adc_ping_pong : 1'b1;
           adc_last <= (input_sample_counter == setting_primary_fft_len_sync[1]-1);
         end else begin
           adc_valid <= 1'b0;
@@ -594,18 +602,19 @@ module axi_mrr_gateway #(
 
         if(adc_enable_q0 & adc_valid_q0 & enable_sync) begin
           adc_q_in_latched <= adc_data_q0;
+          adc_q_in_latched_last <= adc_q_in_latched;
         end
       end
     end
   end
 
   wire sample_fifo_empty;
-  wire [38:0] fifo_unused;
+  wire [6:0] fifo_unused;
   assign sample_tvalid = ~sample_fifo_empty;
   fifo_short_2clk input_samples_fifo (
     .rst(ce_rst),
     .wr_clk(adc_clk),
-    .din({39'd0,adc_last,adc_i_in_latched,adc_q_in_latched}),
+    .din({7'd0,adc_last,adc_i_in_latched_last,adc_q_in_latched_last,adc_i_in_latched,adc_q_in_latched}),
     .wr_en(adc_valid),
     .full(),
     .wr_data_count(),
@@ -638,7 +647,7 @@ module axi_mrr_gateway #(
   wire        sample_buff_tvalid;
   wire        sample_buff_tready;
   wire        sample_buff_tlast;
-  wire [31:0] replay_sample_buff_tdata;
+  wire [63:0] replay_sample_buff_tdata;
   wire        replay_sample_buff_tvalid;
   wire        replay_sample_buff_tready;
   wire        replay_sample_buff_tlast;
@@ -710,7 +719,7 @@ module axi_mrr_gateway #(
     .s_axis_data_tvalid(sample_tvalid & sample_tready & ~record_en),
     .s_axis_data_tready(sample_tready_fft),
     .s_axis_data_tlast(sample_tlast),
-    .s_axis_data_tdata(sample_tdata),
+    .s_axis_data_tdata(sample_tdata[31:0]),
     .m_axis_data_tvalid(fft_data_o_tvalid),
     .m_axis_data_tready(fft_data_o_tready),
     .m_axis_data_tlast(fft_data_o_tlast),
@@ -1074,7 +1083,7 @@ module axi_mrr_gateway #(
         //
         // CHDR friendly AXI stream input
         //
-        .i_tdata        ({32'd0,sample_tdata}),
+        .i_tdata        (sample_tdata),
         .i_tlast        (sample_tlast),
         .i_tvalid       (sample_tvalid & (sample_tready | record_en)),
         .i_tready       (sample_tready_iq),
@@ -1618,10 +1627,10 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
   wire record_tlast = replay_sample_buff_tlast;
 
   assign dpti_fifo_pre_tvalids = {record_tvalid, out_decoded_buff_tvalid, out_corr_tvalid};
-  assign replay_sample_buff_tready = (record_en) ? dpti_fifo_pre_treadies[2] : replay_sample_buff_tready_receiver;
+  assign replay_sample_buff_tready = (record_en) ? (dpti_fifo_pre_treadies[2] & record_count[0]) : replay_sample_buff_tready_receiver;
   assign out_decoded_buff_tready = dpti_fifo_pre_treadies[1];
   assign out_corr_tready = dpti_fifo_pre_treadies[0];
-  assign dpti_fifo_pre_tdatas[2] = {record_tlast, 7'd2, replay_sample_buff_tdata};
+  assign dpti_fifo_pre_tdatas[2] = (record_count[0]) ? {record_tlast, 7'd2, replay_sample_buff_tdata[31:0]} : {1'b0, 7'd2, replay_sample_buff_tdata[63:32]};
   assign dpti_fifo_pre_tdatas[1] = {out_decoded_buff_tlast, 7'd1, out_decoded_buff_tdata};
   assign dpti_fifo_pre_tdatas[0] = {out_corr_tlast, 7'd0, out_corr_tdata};
 
