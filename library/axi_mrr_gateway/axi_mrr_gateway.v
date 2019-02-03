@@ -179,7 +179,7 @@ module axi_mrr_gateway #(
   `include "git_version.vh"
 
   //TODO: Any other valid sources for 'clear' signal?
-  wire clear = 1'b0;
+  wire clear = ~enable;
 
   /////////////////////////////////////////////////////////////
   //
@@ -291,18 +291,6 @@ module axi_mrr_gateway #(
     endcase
   end
 
-  reg [31:0] out_decoded_tdata_counter;
-  wire ce_rst;
-  always @(posedge ce_clk) begin
-    if(ce_rst) begin
-      out_decoded_tdata_counter <= 0;
-    end else begin
-      if(out_decoded_tvalid) begin
-        out_decoded_tdata_counter <= out_decoded_tdata_counter + 1;
-      end
-    end
-  end
-
   wire dpti_fifo_full;
   wire dpti_fifo_valid;
   wire [39:0] dpti_fifo_wr;
@@ -404,7 +392,7 @@ module axi_mrr_gateway #(
         dpti_fifo_pre_tdatas_saved[cur_idx] <= 0;
       end
     end else begin
-      if(~record_en) begin
+      if(~record_en | ~enable) begin
           record_count <= 0;
       end else begin
           if(dpti_fifo_pre_tvalids[2] & dpti_fifo_pre_treadies[2]) begin
@@ -569,7 +557,7 @@ module axi_mrr_gateway #(
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len;
   reg [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len_sync[1:0];
   always @(posedge adc_clk) begin
-    if(ce_rst) begin
+    if(ce_rst | clear) begin
       setting_primary_fft_len_sync[0] <= 0;
       setting_primary_fft_len_sync[1] <= 0;
       input_sample_counter <= 0;
@@ -612,7 +600,7 @@ module axi_mrr_gateway #(
   wire [6:0] fifo_unused;
   assign sample_tvalid = ~sample_fifo_empty;
   fifo_short_2clk input_samples_fifo (
-    .rst(ce_rst),
+    .rst(ce_rst | clear),
     .wr_clk(adc_clk),
     .din({7'd0,adc_last,adc_i_in_latched_last,adc_q_in_latched_last,adc_i_in_latched,adc_q_in_latched}),
     .wr_en(adc_valid),
@@ -656,7 +644,7 @@ module axi_mrr_gateway #(
     .SIZE(12)) 
   fft_samples_fifo (
     .clk(ce_clk),
-    .reset(ce_rst),
+    .reset(ce_rst | clear),
     .clear(clear),
     .i_tdata({sample_tlast,sample_tdata}),
     .i_tvalid(sample_tvalid & sample_tready & ~record_en),
@@ -1142,7 +1130,7 @@ module axi_mrr_gateway #(
   wire out_decoded_tempty_post;
   wire out_decoded_tlast, out_decoded_tvalid, out_decoded_tready;
   fifo_short_2clk output_samples_fifo (
-    .rst(ce_rst),
+    .rst(ce_rst | clear),
     .wr_clk(ce_clk),
     .din({40'd0,out_decoded_tdata}),
     .wr_en(out_decoded_tvalid),
@@ -1613,7 +1601,7 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
     .SIZE(8))
   decoded_stream_buffer (
     .clk(ce_clk),
-    .reset(ce_rst),
+    .reset(ce_rst | clear),
     .clear(clear),
     .i_tdata({out_decoded_tlast,out_decoded_tdata}),
     .i_tvalid(out_decoded_tvalid),
