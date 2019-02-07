@@ -35,6 +35,14 @@ module axi_mrr_gateway #(
   output          out_valid_q0,
   output  [15:0]  out_data_q0,
 
+  input dac_enable_i0,
+  input dac_valid_i0,
+  output [15:0] dac_data_i0,
+  input dac_enable_q0,
+  input dac_valid_q0,
+  output [15:0] dac_data_q0,
+  output tdd_sync,
+
   // axi interface
 
   input                 s_axi_aclk,
@@ -615,6 +623,15 @@ module axi_mrr_gateway #(
 
   wire [31:0]    out_tdata;
   wire           out_tlast, out_tvalid, out_tready, out_tkeep;
+  synchronizer #(
+    .WIDTH(32),
+    .INITIAL_VAL(32'd0)
+  ) dac_synchronizer (
+    .clk(adc_clk),
+    .rst(ce_rst),
+    .in({out_tkeep,out_tdata}),
+    .out({tdd_sync,dac_data_i0,dac_data_q0})
+  );
   assign out_tready = 1'b1;
 
   wire [15:0] turnaround_ticks;
