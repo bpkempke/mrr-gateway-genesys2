@@ -9,6 +9,7 @@ module axi_mrr_gateway #(
   input ce_clk, input ce_rst_in,
 
   input enable,
+  input soft_reset,
 
   inout [7:0] PROG_D,
   input PROG_CLKO,
@@ -525,7 +526,19 @@ module axi_mrr_gateway #(
   reg [2:0] ce_rst_reg;
   assign ce_rst = ce_rst_reg[2];
   always @(posedge ce_clk) begin
-    ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in};
+    ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in | soft_reset};
+  end
+
+  reg [2:0] dram_rst_reg;
+  wire dram_rst = dram_rst_reg[2];
+  always @(posedge m_axi_aclk) begin
+    dram_rst_reg <= {dram_rst_reg[1:0], (~m_axi_aresetn) | soft_reset};
+  end
+
+  reg [2:0] dram2_rst_reg;
+  wire dram2_rst = dram2_rst_reg[2];
+  always @(posedge m_axi2_aclk) begin
+    dram2_rst_reg <= {dram2_rst_reg[1:0], (~m_axi2_aresetn) | soft_reset};
   end
 
   /////////////////////////////////////////////////////////////
@@ -842,7 +855,7 @@ module axi_mrr_gateway #(
         // Clocks and reset
         //
         .bus_clk(ce_clk), .bus_reset(ce_rst | clear),
-        .dram_clk(m_axi_aclk), .dram_reset(~m_axi_aresetn),
+        .dram_clk(m_axi_aclk), .dram_reset(dram_rst),
         //
         // AXI Write address channel
         //
@@ -1025,7 +1038,7 @@ module axi_mrr_gateway #(
         // Clocks and reset
         //
         .bus_clk(ce_clk), .bus_reset(ce_rst | clear),
-        .dram_clk(m_axi2_aclk), .dram_reset(~m_axi2_aresetn),
+        .dram_clk(m_axi2_aclk), .dram_reset(dram2_rst),
         //
         // AXI Write address channel
         //
