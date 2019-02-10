@@ -237,6 +237,7 @@ module system_top (
     .enable (enable),
     .txnrx (txnrx),
     .gateway_enable (gpio_o[31]),
+    .gateway_soft_reset (gpio_o[30]),
     .gateway_debug (debug),
     .PROG_D(PROG_D),
     .PROG_CLKO(PROG_CLKO),

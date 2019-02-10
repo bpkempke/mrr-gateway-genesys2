@@ -31,6 +31,7 @@ create_bd_port -dir I up_enable
 create_bd_port -dir I up_txnrx
 
 create_bd_port -dir I gateway_enable
+create_bd_port -dir I gateway_soft_reset
 create_bd_port -dir O -from 15 -to 0 gateway_debug
 
 create_bd_port -dir O tdd_sync_o
@@ -111,6 +112,7 @@ ad_connect axi_ad9361/adc_valid_q0 mrr_gateway/adc_valid_q0
 ad_connect axi_ad9361/adc_data_q0 mrr_gateway/adc_data_q0
 ad_connect axi_ad9361/l_clk mrr_gateway/adc_clk
 ad_connect gateway_enable mrr_gateway/enable
+ad_connect gateway_soft_reset mrr_gateway/soft_reset
 ad_connect gateway_debug mrr_gateway/debug
 
 ad_connect PROG_D mrr_gateway/PROG_D
