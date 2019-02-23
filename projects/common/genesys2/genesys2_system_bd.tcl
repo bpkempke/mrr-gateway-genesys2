@@ -29,6 +29,8 @@ create_bd_port -dir I spi_sdo_i
 create_bd_port -dir O spi_sdo_o
 create_bd_port -dir I spi_sdi_i
 
+create_bd_port -dir O peripheral_aresetn
+
 create_bd_port -dir I -from 31 -to 0 gpio0_i
 create_bd_port -dir O -from 31 -to 0 gpio0_o
 create_bd_port -dir O -from 31 -to 0 gpio0_t
@@ -175,6 +177,8 @@ ad_connect sys_200m_clk   axi_ddr_cntrl/ui_clk
 ad_connect sys_cpu_resetn axi_ddr_cntrl/aresetn
 ad_connect sys_cpu_reset  sys_rstgen/peripheral_reset
 ad_connect sys_cpu_resetn sys_rstgen/peripheral_aresetn
+
+ad_connect sys_rstgen/peripheral_aresetn peripheral_aresetn
 
 ad_connect sys_cpu_clk  sys_rstgen/slowest_sync_clk
 ad_connect sys_cpu_clk  sys_mb/Clk
