@@ -144,13 +144,16 @@ module system_top (
   //assign iic_rstn = 1'b1;
   assign spi_csn_0 = spi_csn[0];
 
+  wire peripheral_aresetn;
+  assign gpio_resetb = peripheral_aresetn;
+
   // instantiations
 
   ad_iobuf #(.DATA_WIDTH(15)) i_iobuf (
     .dio_t (gpio_t[46:32]),
     .dio_i (gpio_o[46:32]),
     .dio_o (gpio_i[46:32]),
-    .dio_p ({ gpio_resetb,
+    .dio_p ({// gpio_resetb,
               gpio_sync,
               gpio_en_agc,
               gpio_ctl,
@@ -248,6 +251,7 @@ module system_top (
     .PROG_SPIEN(PROG_SPIEN),
     .PROG_TXEN(PROG_TXEN),
     .PROG_WRN(PROG_WRN),
+    .peripheral_aresetn(peripheral_aresetn),
     .up_enable (gpio_o[47]),
     .up_txnrx (gpio_o[48]));
 

@@ -153,7 +153,7 @@ module mrr_loopback_bpk
             state <= next_state;
             mrr_cycle_counter_last <= mrr_cycle_counter_int_part;
 
-            if(pps_counter == 166666666) begin
+            if(pps_counter == 100000000) begin
                 pps_trigger <= 1'b1;
                 pps_counter <= 0;
             end else begin
