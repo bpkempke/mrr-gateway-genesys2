@@ -14,6 +14,7 @@ M_DEPS += ../../../library/xilinx/common/ad_iobuf.v
 M_DEPS += ../../../library/axi_ad9361/axi_ad9361_delay.tcl
 
 LIB_DEPS += axi_ad9361
+LIB_DEPS += axi_mrr_gateway
 LIB_DEPS += axi_dmac
 LIB_DEPS += axi_gpreg
 LIB_DEPS += util_clkdiv

@@ -121,6 +121,9 @@ module system_top (
   assign gp_in_s[95:86] = gp_out_s[95:86];
   assign gp_in_s[85: 0] = gp_in[85:0];
 
+  wire peripheral_aresetn;
+  assign gpio_resetb = peripheral_aresetn;
+
   // instantiations
 
   IBUFDS_GTE2 i_ibufds_gt_ref_clk (
@@ -146,11 +149,10 @@ module system_top (
   assign gpio_i[50:47] = gpio_o[50:47];
 
   ad_iobuf #(.DATA_WIDTH(16)) i_iobuf (
-    .dio_t ({gpio_t[51], gpio_t[46:32]}),
-    .dio_i ({gpio_o[51], gpio_o[46:32]}),
-    .dio_o ({gpio_i[51], gpio_i[46:32]}),
+    .dio_t ({gpio_t[51], gpio_t[45:32]}),
+    .dio_i ({gpio_o[51], gpio_o[45:32]}),
+    .dio_o ({gpio_i[51], gpio_i[45:32]}),
     .dio_p ({ gpio_clksel,        // 51:51
-              gpio_resetb,        // 46:46
               gpio_sync,          // 45:45
               gpio_en_agc,        // 44:44
               gpio_ctl,           // 43:40
@@ -234,7 +236,10 @@ module system_top (
     .tx_data_out_p (tx_data_out_p),
     .tx_frame_out_n (tx_frame_out_n),
     .tx_frame_out_p (tx_frame_out_p),
+    .gateway_enable (gpio_o[31]),
+    .gateway_soft_reset (gpio_o[30]),
     .txnrx (txnrx),
+    .peripheral_aresetn(peripheral_aresetn),
     .up_enable (gpio_o[47]),
     .up_txnrx (gpio_o[48]));
 

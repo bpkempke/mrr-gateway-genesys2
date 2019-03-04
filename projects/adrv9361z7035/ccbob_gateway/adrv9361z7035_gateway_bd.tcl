@@ -57,8 +57,6 @@ create_bd_port -dir I -type intr ps_intr_12
 create_bd_port -dir I -type intr ps_intr_13
 create_bd_port -dir I -type intr ps_intr_15
 
-ad_connect sys_rstgen/peripheral_aresetn peripheral_aresetn
-
 # instance: sys_ps7
 
 ad_ip_instance processing_system7 sys_ps7
@@ -224,7 +222,7 @@ ad_connect up_txnrx axi_ad9361/up_txnrx
 # MRR gateway
 
 ad_ip_instance axi_mrr_gateway mrr_gateway
-#TODO: ad_connect axi_ddr_cntrl/ui_addn_clk_0 mrr_gateway/ce_clk
+ad_connect sys_cpu_clk mrr_gateway/ce_clk
 ad_connect axi_ad9361/rst mrr_gateway/ce_rst_in
 ad_connect axi_ad9361/adc_enable_i0 mrr_gateway/adc_enable_i0
 ad_connect axi_ad9361/adc_valid_i0 mrr_gateway/adc_valid_i0
@@ -237,6 +235,7 @@ ad_connect gateway_enable mrr_gateway/enable
 ad_connect gateway_soft_reset mrr_gateway/soft_reset
 ad_connect gateway_debug mrr_gateway/debug
 
+ad_connect sys_rstgen/peripheral_aresetn peripheral_aresetn
 
 # tdd-sync
 
@@ -284,12 +283,12 @@ ad_connect axi_ad9361/l_clk util_ad9361_adc_fifo/din_clk
 ad_connect axi_ad9361/rst util_ad9361_adc_fifo/din_rst
 ad_connect util_ad9361_divclk/clk_out util_ad9361_adc_fifo/dout_clk
 ad_connect util_ad9361_divclk_reset/peripheral_aresetn util_ad9361_adc_fifo/dout_rstn
-ad_connect mrr_gateway/adc_enable_i0 util_ad9361_adc_fifo/din_enable_0
-ad_connect mrr_gateway/adc_valid_i0 util_ad9361_adc_fifo/din_valid_0
-ad_connect mrr_gateway/adc_data_i0 util_ad9361_adc_fifo/din_data_0
-ad_connect mrr_gateway/adc_enable_q0 util_ad9361_adc_fifo/din_enable_1
-ad_connect mrr_gateway/adc_valid_q0 util_ad9361_adc_fifo/din_valid_1
-ad_connect mrr_gateway/adc_data_q0 util_ad9361_adc_fifo/din_data_1
+ad_connect mrr_gateway/out_enable_i0 util_ad9361_adc_fifo/din_enable_0
+ad_connect mrr_gateway/out_valid_i0 util_ad9361_adc_fifo/din_valid_0
+ad_connect mrr_gateway/out_data_i0 util_ad9361_adc_fifo/din_data_0
+ad_connect mrr_gateway/out_enable_q0 util_ad9361_adc_fifo/din_enable_1
+ad_connect mrr_gateway/out_valid_q0 util_ad9361_adc_fifo/din_valid_1
+ad_connect mrr_gateway/out_data_q0 util_ad9361_adc_fifo/din_data_1
 ad_connect axi_ad9361/adc_enable_i1 util_ad9361_adc_fifo/din_enable_2
 ad_connect axi_ad9361/adc_valid_i1 util_ad9361_adc_fifo/din_valid_2
 ad_connect axi_ad9361/adc_data_i1 util_ad9361_adc_fifo/din_data_2
@@ -408,10 +407,14 @@ ad_mem_hp1_interconnect sys_cpu_clk sys_ps7/S_AXI_HP1
 ad_mem_hp1_interconnect sys_cpu_clk axi_ad9361_adc_dma/m_dest_axi
 ad_mem_hp2_interconnect sys_cpu_clk sys_ps7/S_AXI_HP2
 ad_mem_hp2_interconnect sys_cpu_clk axi_ad9361_dac_dma/m_src_axi
-#TODO: ad_mem_hp3_interconnect axi_ddr_cntrl/ui_addn_clk_1 sys_ps7/S_AXI_HP3
-#TODO: ad_mem_hp3_interconnect axi_ddr_cntrl/ui_addn_clk_1 mrr_gateway/m_axi
-#TODO: ad_mem_hp4_interconnect axi_ddr_cntrl/ui_addn_clk_1 sys_ps7/S_AXI_HP4
-#TODO: ad_mem_hp4_interconnect axi_ddr_cntrl/ui_addn_clk_1 mrr_gateway/m_axi2
+ad_mem_hp2_interconnect sys_200m_clk mrr_gateway/m_axi
+ad_mem_hp2_interconnect sys_200m_clk mrr_gateway/m_axi2
+
+#GENESYS2 CODE
+#ad_mem_hp3_interconnect axi_ddr_cntrl/ui_addn_clk_1 sys_ps7/S_AXI_HP3
+#ad_mem_hp3_interconnect axi_ddr_cntrl/ui_addn_clk_1 mrr_gateway/m_axi
+#ad_mem_hp4_interconnect axi_ddr_cntrl/ui_addn_clk_1 sys_ps7/S_AXI_HP4
+#ad_mem_hp4_interconnect axi_ddr_cntrl/ui_addn_clk_1 mrr_gateway/m_axi2
 
 ad_connect sys_cpu_resetn mrr_gateway/m_axi_aresetn
 ad_connect sys_cpu_resetn mrr_gateway/m_axi2_aresetn
