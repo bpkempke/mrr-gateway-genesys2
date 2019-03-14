@@ -261,6 +261,19 @@ debug2
    wire force_full_size_sync;
    synchronizer #(.INITIAL_VAL(1'b0)) sync_full_size_inst (.clk(dram_clk), .rst(1'b0), .in(force_full_size), .out(force_full_size_sync));
 
+   wire [PRIMARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_input_frame_size_log2_sync;
+   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_input_frame_size_mask_sync;
+   wire [PRIMARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_reorder_factor_log2_sync;
+   wire [PRIMARY_FFT_MAX_LEN_LOG2-1:0] setting_reorder_factor_mask_sync;
+   wire [SECONDARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_mod_sync_frames_log2_sync;
+   wire [SECONDARY_FFT_MAX_LEN_LOG2:0] setting_mod_sync_frames_mask_sync;
+  synchronizer #(.WIDTH(PRIMARY_FFT_MAX_LEN_LOG2_LOG2), .INITIAL_VAL(1'b0)) setting_input_frame_size_log2_sync_inst (.clk(dram_clk), .rst(0), .in(setting_input_frame_size_log2), .out(setting_input_frame_size_log2_sync));
+  synchronizer #(.WIDTH(PRIMARY_FFT_MAX_LEN_LOG2+1), .INITIAL_VAL(1'b0)) setting_input_frame_size_mask_sync_inst (.clk(dram_clk), .rst(0), .in(setting_input_frame_size_mask), .out(setting_input_frame_size_mask_sync));
+  synchronizer #(.WIDTH(PRIMARY_FFT_MAX_LEN_LOG2_LOG2), .INITIAL_VAL(1'b0)) setting_reorder_factor_log2_sync_inst (.clk(dram_clk), .rst(0), .in(setting_reorder_factor_log2), .out(setting_reorder_factor_log2_sync));
+  synchronizer #(.WIDTH(PRIMARY_FFT_MAX_LEN_LOG2), .INITIAL_VAL(1'b0)) setting_reorder_factor_mask_sync_inst (.clk(dram_clk), .rst(0), .in(setting_reorder_factor_mask), .out(setting_reorder_factor_mask_sync));
+  synchronizer #(.WIDTH(SECONDARY_FFT_MAX_LEN_LOG2_LOG2), .INITIAL_VAL(1'b0)) setting_mod_sync_frames_log2_sync_inst (.clk(dram_clk), .rst(0), .in(setting_mod_sync_frames_log2), .out(setting_mod_sync_frames_log2_sync));
+  synchronizer #(.WIDTH(SECONDARY_FFT_MAX_LEN_LOG2+1), .INITIAL_VAL(1'b0)) setting_mod_sync_frames_mask_sync_inst (.clk(dram_clk), .rst(0), .in(setting_mod_sync_frames_mask), .out(setting_mod_sync_frames_mask_sync));
+
    // SETTING: Readback Address Register
    // Fields:
    // - [2:0]  : Address for readback register
@@ -363,21 +376,21 @@ debug2
    reg [2:0]   input_state;
    wire [15:0]      space_input, occupied_input;
    reg [15:0]       space_input_reg;
-   wire        input_timeout_triggered = (occupied_input >= (1 << setting_input_frame_size_log2));
+   wire        input_timeout_triggered = (occupied_input >= (1 << setting_input_frame_size_log2_sync));
    reg         input_timeout_reset;
    reg [8:0]   input_timeout_count;
    reg [AWIDTH-1:0]  write_addr, last_write_addr;
-   wire [AWIDTH-1:0] write_addr_lastframe = write_addr - (1 << setting_input_frame_size_log2+setting_mod_sync_frames_log2+setting_reorder_factor_log2+3);
+   wire [AWIDTH-1:0] write_addr_lastframe = write_addr - (1 << setting_input_frame_size_log2_sync+setting_mod_sync_frames_log2_sync+setting_reorder_factor_log2_sync+3);
    //wire [AWIDTH-1:0] write_addr_reordered = (REORDER_FACTOR_LOG2 == 0) ? write_addr : {
    //    write_addr[AWIDTH-1:INPUT_FRAME_SIZE_LOG2+MOD_SYNC_FRAMES_LOG2+REORDER_FACTOR_LOG2+3],
    //    write_addr[INPUT_FRAME_SIZE_LOG2+REORDER_FACTOR_LOG2+2-:REORDER_FACTOR_LOG2],
    //    write_addr[INPUT_FRAME_SIZE_LOG2+MOD_SYNC_FRAMES_LOG2+REORDER_FACTOR_LOG2+2-:MOD_SYNC_FRAMES_LOG2],
    //    write_addr[INPUT_FRAME_SIZE_LOG2+2:0]};
 
-   wire [AWIDTH-1:0] write_addr_reordered = (setting_reorder_factor_log2 == 0) ? write_addr : {
-         (write_addr & {{{AWIDTH}{1'b1}} << (setting_input_frame_size_log2+setting_mod_sync_frames_log2+setting_reorder_factor_log2+3)})
-       | ((write_addr & ({{{AWIDTH}{1'b0}}, setting_reorder_factor_mask} << (setting_input_frame_size_log2+3))) << setting_mod_sync_frames_log2)
-       | ((write_addr & ({{{AWIDTH}{1'b0}}, setting_mod_sync_frames_mask} << (setting_input_frame_size_log2+setting_reorder_factor_log2+3))) >> setting_reorder_factor_log2)
+   wire [AWIDTH-1:0] write_addr_reordered = (setting_reorder_factor_log2_sync == 0) ? write_addr : {
+         (write_addr & {{{AWIDTH}{1'b1}} << (setting_input_frame_size_log2_sync+setting_mod_sync_frames_log2_sync+setting_reorder_factor_log2_sync+3)})
+       | ((write_addr & ({{{AWIDTH}{1'b0}}, setting_reorder_factor_mask_sync} << (setting_input_frame_size_log2_sync+3))) << setting_mod_sync_frames_log2_sync)
+       | ((write_addr & ({{{AWIDTH}{1'b0}}, setting_mod_sync_frames_mask_sync} << (setting_input_frame_size_log2_sync+setting_reorder_factor_log2_sync+3))) >> setting_reorder_factor_log2_sync)
        | (write_addr & 3'b111)};
 
    reg         write_ctrl_valid;
@@ -760,7 +773,7 @@ debug2
        end else begin
            if(o_tvalid_i4 & o_tready_i4) begin
                o_tlast_i4_counter <= o_tlast_i4_counter + 1;
-               if(o_tlast_i4_counter == {setting_input_frame_size_mask[PRIMARY_FFT_MAX_LEN_LOG2:1],1'b0}) begin
+               if(o_tlast_i4_counter == {setting_input_frame_size_mask_sync[PRIMARY_FFT_MAX_LEN_LOG2:1],1'b0}) begin
                    o_tlast_i4 <= 1'b1;
                end else begin
                    o_tlast_i4 <= 1'b0;
@@ -890,7 +903,7 @@ debug2
          // 2) Entries in input FIFO
          //
          INPUT2: begin
-            write_count <= setting_input_frame_size_mask;//(1 << INPUT_FRAME_SIZE_LOG2)-1;//(input_page_boundry < ({3'h0,occupied_input[8:0]} - 12'd1)) ? input_page_boundry[7:0] : (occupied_input[8:0] - 12'd1);
+            write_count <= setting_input_frame_size_mask_sync;//(1 << INPUT_FRAME_SIZE_LOG2)-1;//(input_page_boundry < ({3'h0,occupied_input[8:0]} - 12'd1)) ? input_page_boundry[7:0] : (occupied_input[8:0] - 12'd1);
             write_ctrl_valid <= 1'b1;
             if (write_ctrl_ready)
                input_state <= INPUT4; // Pre-emptive ACK
@@ -943,7 +956,7 @@ debug2
          // Need to let space update before looking if there's more to do.
          //
          INPUT6: begin
-            if((last_write_addr & {{{AWIDTH}{1'b1}} << (setting_input_frame_size_log2+setting_mod_sync_frames_log2+setting_reorder_factor_log2+3)}) != (write_addr & {{{AWIDTH}{1'b1}} << (setting_input_frame_size_log2+setting_mod_sync_frames_log2+setting_reorder_factor_log2+3)})) begin
+            if((last_write_addr & {{{AWIDTH}{1'b1}} << (setting_input_frame_size_log2_sync+setting_mod_sync_frames_log2_sync+setting_reorder_factor_log2_sync+3)}) != (write_addr & {{{AWIDTH}{1'b1}} << (setting_input_frame_size_log2_sync+setting_mod_sync_frames_log2_sync+setting_reorder_factor_log2_sync+3)})) begin
             //if(last_write_addr[AWIDTH-1:INPUT_FRAME_SIZE_LOG2+MOD_SYNC_FRAMES_LOG2+REORDER_FACTOR_LOG2+3] != write_addr[AWIDTH-1:INPUT_FRAME_SIZE_LOG2+MOD_SYNC_FRAMES_LOG2+REORDER_FACTOR_LOG2+3]) begin
                 trigger_new_superframe <= 1'b1;
             end else begin
@@ -1032,17 +1045,17 @@ debug2
          OUTPUT_SYNC: begin
             if(sync_latest_sync) begin
                 for(bit_idx=0; bit_idx<AWIDTH; bit_idx=bit_idx+1) begin
-                    if(bit_idx >= setting_input_frame_size_log2+setting_mod_sync_frames_log2+setting_reorder_factor_log2+3)
+                    if(bit_idx >= setting_input_frame_size_log2_sync+setting_mod_sync_frames_log2_sync+setting_reorder_factor_log2_sync+3)
                         read_addr[bit_idx] <= write_addr[bit_idx];
                 end
             end else begin
                 for(bit_idx=0; bit_idx<AWIDTH; bit_idx=bit_idx+1) begin
-                    if(bit_idx >= setting_input_frame_size_log2+setting_mod_sync_frames_log2+setting_reorder_factor_log2+3)
+                    if(bit_idx >= setting_input_frame_size_log2_sync+setting_mod_sync_frames_log2_sync+setting_reorder_factor_log2_sync+3)
                         read_addr[bit_idx] <= (write_addr_lastframe[bit_idx] & set_fifo_addr_mask_bar[bit_idx]) | set_fifo_base_addr[bit_idx];
                 end
             end
             for(bit_idx=0; bit_idx<AWIDTH; bit_idx=bit_idx+1) begin
-                if(bit_idx < setting_input_frame_size_log2+setting_mod_sync_frames_log2+setting_reorder_factor_log2+3)
+                if(bit_idx < setting_input_frame_size_log2_sync+setting_mod_sync_frames_log2_sync+setting_reorder_factor_log2_sync+3)
                     read_addr[bit_idx] <= 1'b0;
             end
             clear_output_fifos <= 1'b1;
@@ -1064,7 +1077,7 @@ debug2
          // 2) 256.
          //
          OUTPUT1: begin
-            read_count <= setting_input_frame_size_mask;//(output_page_boundry < 255) ? output_page_boundry : 8'd255;
+            read_count <= setting_input_frame_size_mask_sync;//(output_page_boundry < 255) ? output_page_boundry : 8'd255;
             read_ctrl_valid <= 1'b1;
             if (read_ctrl_ready)
                output_state <= OUTPUT4; // Pre-emptive ACK
@@ -1079,7 +1092,7 @@ debug2
          // 2) Entries in main FIFO
          //
          OUTPUT2: begin
-            read_count <= setting_input_frame_size_mask;//(output_page_boundry < (occupied - 1)) ? output_page_boundry : (occupied - 1);
+            read_count <= setting_input_frame_size_mask_sync;//(output_page_boundry < (occupied - 1)) ? output_page_boundry : (occupied - 1);
             read_ctrl_valid <= 1'b1;
             if (read_ctrl_ready)
                output_state <= OUTPUT4; // Pre-emptive ACK
@@ -1172,7 +1185,7 @@ debug2
          space <= set_fifo_addr_mask_bar[AWIDTH-1:3] & ~('d63); // Subtract 64 from space to make allowance for read/write reordering in DRAM controller
       else
          if(output_state == OUTPUT_SYNC)
-           space <= (set_fifo_addr_mask_bar[AWIDTH-1:3] & (({{AWIDTH-3}{1'b1}} << setting_input_frame_size_log2-setting_mod_sync_frames_log2-setting_reorder_factor_log2) | (write_addr[AWIDTH-1:3] & ~({{AWIDTH-3}{1'b1}} << setting_input_frame_size_log2+setting_mod_sync_frames_log2+setting_reorder_factor_log2-1)))) - (update_write ? write_count_expanded + 1 : 0);
+           space <= (set_fifo_addr_mask_bar[AWIDTH-1:3] & (({{AWIDTH-3}{1'b1}} << setting_input_frame_size_log2_sync-setting_mod_sync_frames_log2_sync-setting_reorder_factor_log2_sync) | (write_addr[AWIDTH-1:3] & ~({{AWIDTH-3}{1'b1}} << setting_input_frame_size_log2_sync+setting_mod_sync_frames_log2_sync+setting_reorder_factor_log2_sync-1)))) - (update_write ? write_count_expanded + 1 : 0);
          else
            space <= space - (update_write ? write_count_expanded + 1 : 0) + (update_read ? read_count_expanded + 1 : 0);
 

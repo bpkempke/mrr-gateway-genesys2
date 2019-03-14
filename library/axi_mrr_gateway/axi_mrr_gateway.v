@@ -11,16 +11,6 @@ module axi_mrr_gateway #(
   input enable,
   input soft_reset,
 
-  inout [7:0] PROG_D,
-  input PROG_CLKO,
-  output reg PROG_OEN,
-  output reg PROG_RDN,
-  input  PROG_RXFN,
-  output reg PROG_SIWUN,
-  output reg PROG_SPIEN,
-  input PROG_TXEN,
-  output reg PROG_WRN,
-
   input          adc_clk,
   input          adc_enable_i0,
   input          adc_valid_i0,
@@ -181,115 +171,50 @@ module axi_mrr_gateway #(
 
   //TODO: Any other valid sources for 'clear' signal?
   wire clear = ~enable;
+  wire record_en_sync;
 
   /////////////////////////////////////////////////////////////
   //
-  // DPTI (FT245) FIFO Interface
+  // AD DRAM FIFO Interface
   //
   ////////////////////////////////////////////////////////////
-  wire record_en;
-  reg dpti_fifo_rd_en;
-  wire dpti_fifo_rd_empty;
-  reg dpti_shift_reset;
-  reg dpti_shift_en;
-  reg dpti_rd_push;
-  reg next_oen;
-  reg next_rdn;
-  reg dpti_shift_rd_out;
-  reg [2:0] dpti_state, next_dpti_state;
-  reg [1:0] enable_last;
-  reg [2:0] dpti_shift_ctr;
-  reg [39:0] dpti_d_shift;
   wire [39:0] dpti_fifo_rd;
-  reg [39:0] dpti_shift_rd;
-  reg [2:0] dpti_shift_rd_ctr;
-  assign PROG_D = (PROG_OEN) ? dpti_d_shift[39-:8] : 8'hzz;
+  wire dpti_fifo_rd_en;
+  wire dpti_fifo_rd_empty;
+  reg adc_out_pingpong;
 
-  localparam DPTI_STATE_IDLE = 0;
-  localparam DPTI_STATE_TX_WORD = 1;
-  localparam DPTI_STATE_RX_WORD1 = 2;
-  localparam DPTI_STATE_RX_WORD2 = 3;
+  wire          adc_out_enable_i0_int;
+  wire          adc_out_valid_i0_int;
+  wire  [15:0]  adc_out_data_i0_int;
+  wire          adc_out_enable_q0_int;
+  wire          adc_out_valid_q0_int;
+  wire  [15:0]  adc_out_data_q0_int;
 
-  always @(posedge PROG_CLKO or posedge ce_rst) begin
-    PROG_SIWUN <= 1'b1;
-    PROG_SPIEN <= 1'b1;
-    enable_last <= {enable_last[0], enable};
+  assign out_enable_i0 = (record_en_sync) ? adc_enable_i0 : adc_out_enable_i0_int;
+  assign out_valid_i0  = (record_en_sync) ? adc_valid_i0  : adc_out_valid_i0_int;
+  assign out_data_i0   = (record_en_sync) ? adc_data_i0   : adc_out_data_i0_int;
+  assign out_enable_q0 = (record_en_sync) ? adc_enable_q0 : adc_out_enable_q0_int;
+  assign out_valid_q0  = (record_en_sync) ? adc_valid_q0  : adc_out_valid_q0_int;
+  assign out_data_q0   = (record_en_sync) ? adc_data_q0   : adc_out_data_q0_int;
 
-    if(ce_rst) begin
-      dpti_d_shift <= 0;
-      dpti_state <= DPTI_STATE_IDLE;
-      dpti_shift_rd_ctr <= 0;
-      dpti_rd_push <= 1'b0;
-      dpti_shift_rd <= 0;
-      PROG_OEN <= 1'b1;
+  assign adc_out_enable_i0_int = 1'b1;
+  assign adc_out_valid_i0_int = ~dpti_fifo_rd_empty;
+  assign adc_out_data_i0_int = (adc_out_pingpong) ? {8'h00, dpti_fifo_rd[39:32]} : dpti_fifo_rd[15:0];
+  assign adc_out_valid_q0_int = ~dpti_fifo_rd_empty;
+  assign adc_out_data_q0_int = (adc_out_pingpong) ? 16'hC00B : dpti_fifo_rd[31:0];
+  assign adc_out_enable_q0_int = 1'b1;
+
+  assign dpti_fifo_rd_en = (~dpti_fifo_rd_empty) & adc_out_pingpong;
+
+  always @(posedge adc_clk) begin
+    if(ce_rst_sync | clear_sync) begin
+      adc_out_pingpong <= 1'b0;
     end else begin
-      PROG_OEN <= next_oen;
-      dpti_state <= next_dpti_state;
-      if(dpti_shift_reset) begin
-        dpti_d_shift <= dpti_fifo_rd;
-        dpti_shift_ctr <= 0;
-      end else if(dpti_shift_en) begin
-        dpti_d_shift <= {dpti_d_shift[31:0], 8'd0};
-        dpti_shift_ctr <= dpti_shift_ctr + 1;
-      end
-
-      dpti_rd_push <= 1'b0;
-      if(dpti_shift_rd_out) begin
-        dpti_shift_rd_ctr <= dpti_shift_rd_ctr + 1;
-        dpti_shift_rd <= {dpti_shift_rd[31:0], PROG_D};
-        if(dpti_shift_rd_ctr == 4) begin
-          dpti_shift_rd_ctr <= 0;
-          dpti_rd_push <= 1'b1;
-        end
+      if(dpti_fifo_rd_empty) begin
+          adc_out_pingpong <= ~adc_out_pingpong;
       end
     end
-  end
 
-  always @* begin
-    PROG_RDN = 1'b1;
-    next_dpti_state = dpti_state;
-    next_oen = 1'b1;
-    next_rdn = 1'b1;
-    dpti_shift_reset = 1'b0;
-    dpti_shift_en = 1'b0;
-    dpti_shift_rd_out = 1'b0;
-    dpti_fifo_rd_en = 1'b0;
-    PROG_WRN = 1'b1;
-    case(dpti_state)
-
-      DPTI_STATE_IDLE: begin
-        dpti_shift_reset = 1'b1;
-        if(~PROG_RXFN) begin
-          next_dpti_state = DPTI_STATE_RX_WORD1;
-        end else if(~dpti_fifo_rd_empty) begin
-          next_dpti_state = DPTI_STATE_TX_WORD;
-        end
-      end
-
-      DPTI_STATE_TX_WORD: begin
-        PROG_WRN = 1'b0;
-        dpti_shift_en = (PROG_TXEN == 1'b0);
-        dpti_shift_reset = dpti_shift_en & (dpti_shift_ctr == 3'd4);
-        dpti_fifo_rd_en = dpti_shift_en & (dpti_shift_ctr == 3'd0);
-        if(dpti_shift_reset & dpti_fifo_rd_empty) begin
-          next_dpti_state = DPTI_STATE_IDLE;
-        end
-      end
-
-      DPTI_STATE_RX_WORD1: begin
-        next_oen = 1'b0;
-        next_dpti_state = DPTI_STATE_RX_WORD2;
-      end
-
-      DPTI_STATE_RX_WORD2: begin
-        next_oen = 1'b0;
-        PROG_RDN = 1'b0;
-        dpti_shift_rd_out = ((PROG_RDN == 1'b0) && (PROG_RXFN == 1'b0));
-        if(PROG_RXFN) begin//(dpti_shift_rd_out == 1'b1) && (dpti_shift_rd_ctr == 4)) begin
-          next_dpti_state = DPTI_STATE_IDLE;
-        end
-      end
-    endcase
   end
 
   wire dpti_fifo_full;
@@ -303,7 +228,7 @@ module axi_mrr_gateway #(
     .wr_en(dpti_fifo_valid),
     .full(dpti_fifo_full),
     .wr_data_count(),
-    .rd_clk(PROG_CLKO),
+    .rd_clk(adc_clk),
     .dout({dpti_fifo_unused,dpti_fifo_rd}),
     .rd_en(dpti_fifo_rd_en),
     .empty(dpti_fifo_rd_empty),
@@ -313,20 +238,7 @@ module axi_mrr_gateway #(
   wire [31:0] set_data;
   wire [7:0]  set_addr;
   wire        set_empty;
-  wire        set_stb = ~set_empty;
-  fifo_short_2clk dpti_rd_fifo (
-    .rst(ce_rst),
-    .wr_clk(PROG_CLKO),
-    .din(dpti_shift_rd),
-    .wr_en(dpti_rd_push),
-    .full(),
-    .wr_data_count(),
-    .rd_clk(ce_clk),
-    .dout({set_addr,set_data}),
-    .rd_en(1'b1),
-    .empty(set_empty),
-    .rd_data_count()
-  );
+  wire        set_stb;
 
   //out_decoded_tlast,7'd0,out_decoded_tdata}),
   //out_decoded_tvalid
@@ -378,7 +290,6 @@ module axi_mrr_gateway #(
   reg save_pre_arb_idx;
   reg reset_pre_cur_idx;
   reg incr_pre_cur_idx;
-  reg [31:0] record_count;
 
   integer cur_idx;
   always @(posedge ce_clk) begin
@@ -387,19 +298,11 @@ module axi_mrr_gateway #(
       cur_pre_arb_idx <= 0;
       cur_pre_idx <= 0;
       dpti_fifo_pre_state <= DPTI_PRE_IDLE;
-      record_count <= 0;
       for(cur_idx=0; cur_idx < NUM_MUX_CHANNELS; cur_idx=cur_idx+1) begin
         dpti_fifo_pre_tvalids_saved[cur_idx] <= 0;
         dpti_fifo_pre_tdatas_saved[cur_idx] <= 0;
       end
     end else begin
-      if(~record_en | ~enable) begin
-          record_count <= 0;
-      end else begin
-          if(dpti_fifo_pre_tvalids[2] & dpti_fifo_pre_treadies[2]) begin
-              record_count <= record_count + 1;
-          end
-      end
       if(dpti_fifo_pre_tvalid & dpti_fifo_pre_tready) begin
           dpti_fifo_pre_tdata_count <= dpti_fifo_pre_tdata_count + 1;
       end
@@ -467,21 +370,26 @@ module axi_mrr_gateway #(
   ////////////////////////////////////////////////////////////
   wire              up_clk;
   wire              up_rstn;
-  wire    [ 4:0]    up_waddr;
+  wire    [ 7:0]    up_waddr;
   wire    [31:0]    up_wdata;
   wire              up_wack;
   wire              up_wreq;
   wire              up_rack;
   wire    [31:0]    up_rdata;
   wire              up_rreq;
-  wire    [ 4:0]    up_raddr;
+  wire    [ 7:0]    up_raddr;
+
+  assign set_data = up_wdata;
+  assign set_addr = up_waddr;
+  assign up_wack = up_wreq;
+  assign set_stb = up_wreq;
 
   up_axi #(
     .AXI_ADDRESS_WIDTH(7),
-    .ADDRESS_WIDTH(5)
+    .ADDRESS_WIDTH(8)
   ) i_up_axi (
-    .up_rstn (up_rstn),
-    .up_clk (up_clk),
+    .up_rstn (s_axi_aresetn),
+    .up_clk (s_axi_aclk),
     .up_axi_awvalid (s_axi_awvalid),
     .up_axi_awaddr (s_axi_awaddr),
     .up_axi_awready (s_axi_awready),
@@ -515,10 +423,15 @@ module axi_mrr_gateway #(
   wire setting_primary_fft_len_log2_changed;
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_reorder_factor_log2 = setting_primary_fft_len_log2-setting_primary_fft_len_decim_log2;
 
+  wire ce_rst_in_sync;
+  synchronizer #(.INITIAL_VAL(1'b0)) ce_rst_sync_inst (.clk(ce_clk), .rst(1'b0), .in(ce_rst_in), .out(ce_rst_in_sync));
+  wire soft_reset_sync;
+  synchronizer #(.INITIAL_VAL(1'b0)) soft_reset_sync_inst (.clk(ce_clk), .rst(1'b0), .in(soft_reset), .out(soft_reset_sync));
+
   reg [2:0] ce_rst_reg;
   assign ce_rst = ce_rst_reg[2];
   always @(posedge ce_clk) begin
-    ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in | soft_reset};
+    ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in_sync | soft_reset_sync};
   end
 
   reg [2:0] dram_rst_reg;
@@ -568,11 +481,14 @@ module axi_mrr_gateway #(
   reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] input_sample_counter;
 
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len;
-  reg [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len_sync[1:0];
+  wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len_sync;
+  synchronizer #(.WIDTH(PRIMARY_FFT_MAX_LEN_LOG2+1), .INITIAL_VAL(1'b0)) setting_primary_fft_len_sync_inst (.clk(adc_clk), .rst(0), .in(setting_primary_fft_len), .out(setting_primary_fft_len_sync));
+  wire ce_rst_sync;
+  synchronizer #(.INITIAL_VAL(1'b0)) ce_rst_adc_sync_inst (.clk(adc_clk), .rst(0), .in(ce_rst), .out(ce_rst_sync));
+  wire record_en;
+  wire clear_sync;
   always @(posedge adc_clk) begin
-    if(ce_rst | clear) begin
-      setting_primary_fft_len_sync[0] <= 0;
-      setting_primary_fft_len_sync[1] <= 0;
+    if(ce_rst_sync | clear_sync) begin
       input_sample_counter <= 0;
       adc_valid <= 1'b0;
       adc_last <= 1'b0;
@@ -582,21 +498,19 @@ module axi_mrr_gateway #(
       adc_q_in_latched_last <= 0;
       adc_ping_pong <= 1'b0;
     end else begin
-      setting_primary_fft_len_sync[0] <= setting_primary_fft_len;
-      setting_primary_fft_len_sync[1] <= setting_primary_fft_len_sync[0];
       if(~enable_sync) begin
         adc_valid <= 1'b0;
       end else begin
         if(adc_enable_i0 & adc_valid_i0 & enable_sync) begin
-          if(input_sample_counter == setting_primary_fft_len_sync[1]-1)
+          if(input_sample_counter == setting_primary_fft_len_sync-1)
             input_sample_counter <= 0;
           else
             input_sample_counter <= input_sample_counter + 1;
           adc_i_in_latched <= adc_data_i0;
           adc_i_in_latched_last <= adc_i_in_latched;
           adc_ping_pong <= ~adc_ping_pong;
-          adc_valid <= (record_en) ? adc_ping_pong : 1'b1;
-          adc_last <= (input_sample_counter == setting_primary_fft_len_sync[1]-1);
+          adc_valid <= (record_en_sync) ? adc_ping_pong : 1'b1;
+          adc_last <= (input_sample_counter == setting_primary_fft_len_sync-1);
         end else begin
           adc_valid <= 1'b0;
         end
@@ -621,7 +535,7 @@ module axi_mrr_gateway #(
     .wr_data_count(),
     .rd_clk(ce_clk),
     .dout({fifo_unused,sample_tlast,sample_tdata}),
-    .rd_en(sample_tready | (sample_tready_iq & record_en)),
+    .rd_en(sample_tready | sample_tready_iq),
     .empty(sample_fifo_empty),
     .rd_data_count()
   );
@@ -660,7 +574,7 @@ module axi_mrr_gateway #(
     .reset(ce_rst | clear),
     .clear(clear),
     .i_tdata({sample_tlast,sample_tdata}),
-    .i_tvalid(sample_tvalid & sample_tready & ~record_en),
+    .i_tvalid(sample_tvalid & sample_tready),
     .i_tready(),
     .o_tdata({sample_buff_tlast,sample_buff_tdata}),
     .o_tvalid(sample_buff_tvalid),
@@ -717,7 +631,7 @@ module axi_mrr_gateway #(
 
   axi_fft_un inst_axi_fft (
     .aclk(ce_clk), .aresetn(~rst_fft),
-    .s_axis_data_tvalid(sample_tvalid & sample_tready & ~record_en),
+    .s_axis_data_tvalid(sample_tvalid & sample_tready),
     .s_axis_data_tready(sample_tready_fft),
     .s_axis_data_tlast(sample_tlast),
     .s_axis_data_tdata(sample_tdata[31:0]),
@@ -1007,7 +921,6 @@ module axi_mrr_gateway #(
   wire iq_sync_ack;
   wire iq_flush_req;
   wire iq_flush_done;
-  wire dram_force_full_size;
   wire [63:0] dram_iq_buffer_debug, dram_iq_buffer_debug2;
   localparam j = 1;
   mrr_dram_fft_buffer #(
@@ -1086,7 +999,7 @@ module axi_mrr_gateway #(
         //
         .i_tdata        (sample_tdata),
         .i_tlast        (sample_tlast),
-        .i_tvalid       (sample_tvalid & (sample_tready | record_en)),
+        .i_tvalid       (sample_tvalid & sample_tready),
         .i_tready       (sample_tready_iq),
         //
         // CHDR friendly AXI Stream output
@@ -1122,7 +1035,7 @@ module axi_mrr_gateway #(
         .setting_mod_sync_frames_mask(setting_secondary_fft_len_mask),
 
         //Full size used for prompting buffering of recorded samples
-        .force_full_size(dram_force_full_size),
+        .force_full_size(1'b0),
 
         //
         // Debug
@@ -1131,11 +1044,9 @@ module axi_mrr_gateway #(
         .debug2         (dram_iq_buffer_debug2)
   );
 
-  reg [2:0] enable_reg;
-  assign enable_sync = enable_reg[2];
-  always @(posedge adc_clk) begin
-    enable_reg <= {enable_reg[1:0], enable};
-  end
+  synchronizer #(.INITIAL_VAL(1'b0)) enable_sync_inst (.clk(adc_clk), .rst(1'b0), .in(enable), .out(enable_sync));
+  synchronizer #(.INITIAL_VAL(1'b0)) record_en_sync_inst (.clk(adc_clk), .rst(1'b0), .in(record_en), .out(record_en_sync));
+  synchronizer #(.INITIAL_VAL(1'b0)) clear_sync_inst (.clk(adc_clk), .rst(1'b0), .in(clear), .out(clear_sync));
 
   wire [31:0] out_decoded_tdata_post;
   wire [31:0] out_decoded_tdata;
@@ -1156,12 +1067,12 @@ module axi_mrr_gateway #(
     .rd_data_count()
   );
 
-  assign out_enable_i0 = (enable_reg[2]) ? 1'b1 : adc_enable_i0;
-  assign out_enable_q0 = (enable_reg[2]) ? 1'b1 : adc_enable_q0;
-  assign out_valid_i0  = (enable_reg[2]) ? ~out_decoded_tempty_post : adc_valid_i0;
-  assign out_valid_q0  = (enable_reg[2]) ? ~out_decoded_tempty_post : adc_valid_q0;
-  assign out_data_i0   = (enable_reg[2]) ? out_decoded_tdata_post[31:16] : adc_data_i0;
-  assign out_data_q0   = (enable_reg[2]) ? out_decoded_tdata_post[15:0] : adc_data_q0;
+  //assign out_enable_i0 = (enable_sync) ? 1'b1 : adc_enable_i0;
+  //assign out_enable_q0 = (enable_sync) ? 1'b1 : adc_enable_q0;
+  //assign out_valid_i0  = (enable_sync) ? ~out_decoded_tempty_post : adc_valid_i0;
+  //assign out_valid_q0  = (enable_sync) ? ~out_decoded_tempty_post : adc_valid_q0;
+  //assign out_data_i0   = (enable_sync) ? out_decoded_tdata_post[31:16] : adc_data_i0;
+  //assign out_data_q0   = (enable_sync) ? out_decoded_tdata_post[15:0] : adc_data_q0;
 
   //A separate port is used to push out decoded data
   wire pause_block;
@@ -1399,7 +1310,6 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_secondary_fft_len_log2), .changed(setting_secondary_fft_len_log2_changed));
 
-  assign dram_force_full_size = record_en;
   setting_reg #(
       .my_addr(SR_RECORD_EN), .awidth(8), .width(1), .at_reset(1'b0))
   sr_record_en (
@@ -1624,14 +1534,10 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
     .o_tready(out_decoded_buff_tready)
   );
 
-  wire record_tvalid = ((record_en == 1'b1) && (record_count < record_len)) ? replay_sample_buff_tvalid : 1'b0;
-  wire record_tlast = replay_sample_buff_tlast;
-
-  assign dpti_fifo_pre_tvalids = {record_tvalid, out_decoded_buff_tvalid, out_corr_tvalid};
-  assign replay_sample_buff_tready = (record_en) ? (dpti_fifo_pre_treadies[2] & record_count[0]) : replay_sample_buff_tready_receiver;
+  assign dpti_fifo_pre_tvalids = {out_decoded_buff_tvalid, out_corr_tvalid};
+  assign replay_sample_buff_tready = replay_sample_buff_tready_receiver;
   assign out_decoded_buff_tready = dpti_fifo_pre_treadies[1];
   assign out_corr_tready = dpti_fifo_pre_treadies[0];
-  assign dpti_fifo_pre_tdatas[2] = (record_count[0]) ? {record_tlast, 7'd2, replay_sample_buff_tdata[31:0]} : {1'b0, 7'd2, replay_sample_buff_tdata[63:32]};
   assign dpti_fifo_pre_tdatas[1] = {out_decoded_buff_tlast, 7'd1, out_decoded_buff_tdata};
   assign dpti_fifo_pre_tdatas[0] = {out_corr_tlast, 7'd0, out_corr_tdata};
 
