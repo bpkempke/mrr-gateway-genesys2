@@ -31,7 +31,7 @@ module axi_mrr_gateway #(
   input                 s_axi_aclk,
   input                 s_axi_aresetn,
   input                 s_axi_awvalid,
-  input       [ 6:0]    s_axi_awaddr,
+  input       [15:0]    s_axi_awaddr,
   input       [ 2:0]    s_axi_awprot,
   output                s_axi_awready,
   input                 s_axi_wvalid,
@@ -42,7 +42,7 @@ module axi_mrr_gateway #(
   output      [ 1:0]    s_axi_bresp,
   input                 s_axi_bready,
   input                 s_axi_arvalid,
-  input       [ 6:0]    s_axi_araddr,
+  input       [15:0]    s_axi_araddr,
   input       [ 2:0]    s_axi_arprot,
   output                s_axi_arready,
   output                s_axi_rvalid,
@@ -170,6 +170,7 @@ module axi_mrr_gateway #(
   `include "git_version.vh"
 
   //TODO: Any other valid sources for 'clear' signal?
+  wire enable_sync;
   wire clear = ~enable;
   wire record_en_sync;
 
@@ -190,12 +191,12 @@ module axi_mrr_gateway #(
   wire          adc_out_valid_q0_int;
   wire  [15:0]  adc_out_data_q0_int;
 
-  assign out_enable_i0 = (record_en_sync) ? adc_enable_i0 : adc_out_enable_i0_int;
-  assign out_valid_i0  = (record_en_sync) ? adc_valid_i0  : adc_out_valid_i0_int;
-  assign out_data_i0   = (record_en_sync) ? adc_data_i0   : adc_out_data_i0_int;
-  assign out_enable_q0 = (record_en_sync) ? adc_enable_q0 : adc_out_enable_q0_int;
-  assign out_valid_q0  = (record_en_sync) ? adc_valid_q0  : adc_out_valid_q0_int;
-  assign out_data_q0   = (record_en_sync) ? adc_data_q0   : adc_out_data_q0_int;
+  assign out_enable_i0 = (record_en_sync | ~enable_sync) ? adc_enable_i0 : adc_out_enable_i0_int;
+  assign out_valid_i0  = (record_en_sync | ~enable_sync) ? adc_valid_i0  : adc_out_valid_i0_int;
+  assign out_data_i0   = (record_en_sync | ~enable_sync) ? adc_data_i0   : adc_out_data_i0_int;
+  assign out_enable_q0 = (record_en_sync | ~enable_sync) ? adc_enable_q0 : adc_out_enable_q0_int;
+  assign out_valid_q0  = (record_en_sync | ~enable_sync) ? adc_valid_q0  : adc_out_valid_q0_int;
+  assign out_data_q0   = (record_en_sync | ~enable_sync) ? adc_data_q0   : adc_out_data_q0_int;
 
   assign adc_out_enable_i0_int = 1'b1;
   assign adc_out_valid_i0_int = ~dpti_fifo_rd_empty;
@@ -385,7 +386,7 @@ module axi_mrr_gateway #(
   assign set_stb = up_wreq;
 
   up_axi #(
-    .AXI_ADDRESS_WIDTH(7),
+    .AXI_ADDRESS_WIDTH(16),
     .ADDRESS_WIDTH(8)
   ) i_up_axi (
     .up_rstn (s_axi_aresetn),
@@ -473,7 +474,6 @@ module axi_mrr_gateway #(
   reg adc_last;
   reg adc_valid;
   reg adc_ping_pong;
-  wire enable_sync;
   reg [15:0] adc_i_in_latched;
   reg [15:0] adc_q_in_latched;
   reg [15:0] adc_i_in_latched_last;
