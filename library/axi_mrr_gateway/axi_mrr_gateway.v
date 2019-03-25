@@ -369,16 +369,21 @@ module axi_mrr_gateway #(
   // ADI Stuff...
   //
   ////////////////////////////////////////////////////////////
+  reg  [63:0] rb_data;
   wire              up_clk;
   wire              up_rstn;
   wire    [ 7:0]    up_waddr;
   wire    [31:0]    up_wdata;
   wire              up_wack;
   wire              up_wreq;
-  wire              up_rack;
-  wire    [31:0]    up_rdata;
+  wire    [31:0]    up_rdata = rb_data[31:0];
   wire              up_rreq;
+  reg               up_rack;
   wire    [ 7:0]    up_raddr;
+
+  always @(posedge s_axi_aclk) begin
+    up_rack <= up_rreq;
+  end
 
   assign set_data = up_wdata;
   assign set_addr = up_waddr;
@@ -452,8 +457,6 @@ module axi_mrr_gateway #(
   // RFNoC Shell
   //
   ////////////////////////////////////////////////////////////
-  reg  [63:0] rb_data;
-  wire [7:0]  rb_addr;
 
   wire [63:0] cmdout_tdata, ackin_tdata;
   wire        cmdout_tlast, cmdout_tvalid, cmdout_tready, ackin_tlast, ackin_tvalid, ackin_tready;
@@ -1395,7 +1398,7 @@ module axi_mrr_gateway #(
   wire [19:0] local_lasts  = {cmdout_tlast, ackin_tlast, str_src_tlast[1], str_src_tlast[0], 1'b0, sample_tlast, out_tlast, sample_buff_tlast, fft_data_o_tlast, fft_mag_o_tlast, out_decoded_tlast, ackin_tlast, fft_buff_o_tlast};
   wire [5:0] mrr_basic_readies, mrr_basic_valid;
   always @(*) begin
-    case(rb_addr)
+    case(up_raddr)
       RB_READIES     : rb_data <= {mrr_basic_readies,local_readies};
       RB_VALIDS      : rb_data <= {mrr_basic_valid,local_valids};
       RB_DRAM        : rb_data <= dram_iq_buffer_debug;
