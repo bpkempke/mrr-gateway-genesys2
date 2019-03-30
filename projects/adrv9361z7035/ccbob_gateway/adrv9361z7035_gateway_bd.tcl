@@ -403,8 +403,10 @@ ad_mem_hp1_interconnect sys_cpu_clk sys_ps7/S_AXI_HP1
 ad_mem_hp1_interconnect sys_cpu_clk axi_ad9361_adc_dma/m_dest_axi
 ad_mem_hp2_interconnect sys_cpu_clk sys_ps7/S_AXI_HP2
 ad_mem_hp2_interconnect sys_cpu_clk axi_ad9361_dac_dma/m_src_axi
-ad_mem_hp2_interconnect sys_200m_clk mrr_gateway/m_axi
-ad_mem_hp2_interconnect sys_200m_clk mrr_gateway/m_axi2
+ad_mem_hp0_interconnect sys_200m_clk sys_ps7/S_AXI_HP0
+ad_mem_hp0_interconnect sys_200m_clk mrr_gateway/m_axi
+ad_mem_hp3_interconnect sys_200m_clk sys_ps7/S_AXI_HP3
+ad_mem_hp3_interconnect sys_200m_clk mrr_gateway/m_axi2
 
 #GENESYS2 CODE
 #ad_mem_hp3_interconnect axi_ddr_cntrl/ui_addn_clk_1 sys_ps7/S_AXI_HP3

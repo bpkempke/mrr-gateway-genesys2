@@ -92,7 +92,7 @@ module axi_dma_master
    //
    // Debug Bus
    //
-   output [31:0] debug
+   output [63:0] debug
    
    );
  
@@ -131,7 +131,8 @@ module axi_dma_master
    ///////////////////////////
    // DEBUG
    ///////////////////////////
-   assign debug= {24'h0,write_addr_state[1:0],write_data_state[1:0],read_addr_state[1:0],read_data_state[1:0]};
+   reg [1:0] bresp_saved;
+   assign debug= {m_axi_awaddr,22'h0,bresp_saved,write_addr_state[1:0],write_data_state[1:0],read_addr_state[1:0],read_data_state[1:0]};
    
    
    //
@@ -148,10 +149,10 @@ module axi_dma_master
    /////////////////////////////////////////////////////////////////////////////////
    assign m_axi_awid = 1'b0;
    assign m_axi_awsize = 3'h3; // 8 bytes.
-   assign m_axi_awburst = `AXI4_BURST_INCR;
-   assign m_axi_awlock = `AXI4_LOCK_NORMAL;
-   assign m_axi_awcache = `AXI4_CACHE_ALLOCATE | `AXI4_CACHE_OTHER_ALLOCATE | `AXI4_CACHE_MODIFIABLE | `AXI4_CACHE_BUFFERABLE;
-   assign m_axi_awprot = `AXI4_PROT_NON_SECURE;
+   assign m_axi_awburst = 2'b01;//`AXI4_BURST_INCR;
+   assign m_axi_awlock = 1'b0;//`AXI4_LOCK_NORMAL;
+   assign m_axi_awcache = 4'b0011;//`AXI4_CACHE_ALLOCATE | `AXI4_CACHE_OTHER_ALLOCATE | `AXI4_CACHE_MODIFIABLE | `AXI4_CACHE_BUFFERABLE;
+   assign m_axi_awprot = 3'b000;//`AXI4_PROT_NON_SECURE;
    assign m_axi_awqos = 4'h0;
    assign m_axi_awregion = 4'h0;
    assign m_axi_awuser = 1'b0;
@@ -168,6 +169,7 @@ module axi_dma_master
 	m_axi_awlen[7:0] <= 8'h0;
 	m_axi_awvalid <= 1'b0;
 	m_axi_bready <= 1'b0;
+        bresp_saved <= 2'd0;
      end else
        case (write_addr_state)
 	 //
@@ -231,6 +233,7 @@ module axi_dma_master
 		  write_ctrl_ready <= 1'b1; // Ready to run again as soon as we hit idle.
 	       end else if ((m_axi_bresp == `AXI4_RESP_SLVERR) || (m_axi_bresp == `AXI4_RESP_DECERR)) begin
 		  // ....things got ugly, retreat to an error stat and wait for intervention.
+                  bresp_saved <= m_axi_bresp;
 		  write_addr_state <= AW_ERROR;
 		  m_axi_bready <= 1'b0;
 	       end	       
@@ -246,7 +249,7 @@ module axi_dma_master
 	 AW_ERROR: begin
 	    write_ctrl_ready <= 1'b0;
 	    write_addr_state <= AW_ERROR;
-	    m_axi_awaddr[31:0] <= 32'h0;
+	    //m_axi_awaddr[31:0] <= 32'h0;
 	    m_axi_awlen[7:0] <= 8'h0;
 	    m_axi_awvalid <= 1'b0;
 	    m_axi_bready <= 1'b0;

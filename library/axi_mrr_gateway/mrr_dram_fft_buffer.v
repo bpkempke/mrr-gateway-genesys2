@@ -1246,6 +1246,7 @@ debug4
    //
    // Instamce of axi_dma_master
    //
+   wire [63:0] dma_master_debug;
    axi_dma_master axi_dma_master_i
    (
       .aclk(dram_clk), // input aclk
@@ -1302,7 +1303,7 @@ debug4
       //
       // DMA interface for Write transaction
       //
-      .write_addr({3'b000, write_addr_reordered[AWIDTH-2:0]}),       // Byte address for start of write transaction (should be 64bit alligned)
+      .write_addr({4'b0011, write_addr_reordered[AWIDTH-3:0]}),       // Byte address for start of write transaction (should be 64bit alligned)
       .write_count(write_count),       // Count of 64bit words to write.
       .write_ctrl_valid(write_ctrl_valid),
       .write_ctrl_ready(write_ctrl_ready),
@@ -1312,7 +1313,7 @@ debug4
       //
       // DMA interface for Read
       //
-      .read_addr({3'b000, read_addr[AWIDTH-2:0]}),       // Byte address for start of read transaction (should be 64bit alligned)
+      .read_addr({4'b0011, read_addr[AWIDTH-3:0]}),       // Byte address for start of read transaction (should be 64bit alligned)
       .read_count(read_count),       // Count of 64bit words to read.
       .read_ctrl_valid(read_ctrl_valid),
       .read_ctrl_ready(read_ctrl_ready),
@@ -1322,7 +1323,7 @@ debug4
       //
       // Debug
       //
-      .debug()
+      .debug(dma_master_debug)
    );
 
  //assign debug = {o_tready, i_tready, i_tready_int, i_tready_fifo, i_tready_bist, o_tready_fifo, o_tready_bist, o_tready_gate, i_tready_i0, i_tready_i1, i_tready_i2, i_tready_i3, i_tready_input, o_tready_output, o_tready_i0, o_tready_i1, o_tready_i2, o_tready_i3, o_tready_i4, o_tready_i5};
@@ -1330,9 +1331,9 @@ debug4
  always @(posedge dram_clk) begin
    wr_addr <= write_addr-read_addr;
  end
- assign debug3 = {input_state, output_state};
- assign debug4 = {read_addr, write_addr};
  assign debug = {input_state, output_state, flush_state,i_tready_int,clear_bclk,i_tready_flush};
  assign debug2 = {write_ctrl_valid,write_ctrl_ready,i_tvalid_input,read_ctrl_valid,read_ctrl_ready,o_tvalid_output,o_tready_output};
+ assign debug3 = {dma_master_debug};
+ assign debug4 = {read_addr, write_addr};
  endmodule // axi_dma_fifo
 
