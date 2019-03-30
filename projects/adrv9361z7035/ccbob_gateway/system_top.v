@@ -236,8 +236,6 @@ module system_top (
     .tx_data_out_p (tx_data_out_p),
     .tx_frame_out_n (tx_frame_out_n),
     .tx_frame_out_p (tx_frame_out_p),
-    .gateway_enable (gpio_o[31]),
-    .gateway_soft_reset (gpio_o[30]),
     .txnrx (txnrx),
     .peripheral_aresetn(peripheral_aresetn),
     .up_enable (gpio_o[47]),

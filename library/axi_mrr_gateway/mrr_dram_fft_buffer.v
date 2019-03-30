@@ -91,7 +91,9 @@ setting_mod_sync_frames_log2,
 setting_mod_sync_frames_mask,
 force_full_size,
 debug,
-debug2
+debug2,
+debug3,
+debug4
 );
 
     `include "mrr_params.vh"
@@ -210,6 +212,8 @@ debug2
    //
    output [63:0] debug;
    output [63:0] debug2;
+   output [63:0] debug3;
+   output [63:0] debug4;
 
    //
    // We are only solving for width 64bits here, since it's our standard CHDR quanta
@@ -1298,7 +1302,7 @@ debug2
       //
       // DMA interface for Write transaction
       //
-      .write_addr({3'b101, write_addr_reordered[AWIDTH-2:0]}),       // Byte address for start of write transaction (should be 64bit alligned)
+      .write_addr({3'b000, write_addr_reordered[AWIDTH-2:0]}),       // Byte address for start of write transaction (should be 64bit alligned)
       .write_count(write_count),       // Count of 64bit words to write.
       .write_ctrl_valid(write_ctrl_valid),
       .write_ctrl_ready(write_ctrl_ready),
@@ -1308,7 +1312,7 @@ debug2
       //
       // DMA interface for Read
       //
-      .read_addr({3'b101, read_addr[AWIDTH-2:0]}),       // Byte address for start of read transaction (should be 64bit alligned)
+      .read_addr({3'b000, read_addr[AWIDTH-2:0]}),       // Byte address for start of read transaction (should be 64bit alligned)
       .read_count(read_count),       // Count of 64bit words to read.
       .read_ctrl_valid(read_ctrl_valid),
       .read_ctrl_ready(read_ctrl_ready),
@@ -1326,7 +1330,9 @@ debug2
  always @(posedge dram_clk) begin
    wr_addr <= write_addr-read_addr;
  end
- assign debug = {occupied, wr_addr};
- assign debug2 = {read_addr, write_addr};
+ assign debug3 = {input_state, output_state};
+ assign debug4 = {read_addr, write_addr};
+ assign debug = {input_state, output_state, flush_state,i_tready_int,clear_bclk,i_tready_flush};
+ assign debug2 = {write_ctrl_valid,write_ctrl_ready,i_tvalid_input,read_ctrl_valid,read_ctrl_ready,o_tvalid_output,o_tready_output};
  endmodule // axi_dma_fifo
 

@@ -8,9 +8,6 @@ module axi_mrr_gateway #(
 )(
   input ce_clk, input ce_rst_in,
 
-  input enable,
-  input soft_reset,
-
   input          adc_clk,
   input          adc_enable_i0,
   input          adc_valid_i0,
@@ -170,6 +167,10 @@ module axi_mrr_gateway #(
   `include "git_version.vh"
 
   //TODO: Any other valid sources for 'clear' signal?
+  wire enable;
+  wire soft_reset;
+  wire ce_rst;
+
   wire enable_sync;
   wire clear = ~enable;
   wire record_en_sync;
@@ -191,12 +192,14 @@ module axi_mrr_gateway #(
   wire          adc_out_valid_q0_int;
   wire  [15:0]  adc_out_data_q0_int;
 
+  reg [15:0] adc_counter;
+
   assign out_enable_i0 = (record_en_sync | ~enable_sync) ? adc_enable_i0 : adc_out_enable_i0_int;
   assign out_valid_i0  = (record_en_sync | ~enable_sync) ? adc_valid_i0  : adc_out_valid_i0_int;
-  assign out_data_i0   = (record_en_sync | ~enable_sync) ? adc_data_i0   : adc_out_data_i0_int;
+  assign out_data_i0   = (record_en_sync | ~enable_sync) ? adc_data_i0   : adc_counter;//adc_out_data_i0_int;
   assign out_enable_q0 = (record_en_sync | ~enable_sync) ? adc_enable_q0 : adc_out_enable_q0_int;
   assign out_valid_q0  = (record_en_sync | ~enable_sync) ? adc_valid_q0  : adc_out_valid_q0_int;
-  assign out_data_q0   = (record_en_sync | ~enable_sync) ? adc_data_q0   : adc_out_data_q0_int;
+  assign out_data_q0   = (record_en_sync | ~enable_sync) ? adc_data_q0   : adc_counter;//adc_out_data_q0_int;
 
   assign adc_out_enable_i0_int = 1'b1;
   assign adc_out_valid_i0_int = ~dpti_fifo_rd_empty;
@@ -210,9 +213,11 @@ module axi_mrr_gateway #(
   always @(posedge adc_clk) begin
     if(ce_rst_sync | clear_sync) begin
       adc_out_pingpong <= 1'b0;
+      adc_counter <= 16'h1234;
     end else begin
-      if(dpti_fifo_rd_empty) begin
+      if(~dpti_fifo_rd_empty) begin
           adc_out_pingpong <= ~adc_out_pingpong;
+          adc_counter <= adc_counter + 1;
       end
     end
 
@@ -374,7 +379,7 @@ module axi_mrr_gateway #(
   wire              up_rstn;
   wire    [ 7:0]    up_waddr;
   wire    [31:0]    up_wdata;
-  wire              up_wack;
+  reg               up_wack;
   wire              up_wreq;
   wire    [31:0]    up_rdata = rb_data[31:0];
   wire              up_rreq;
@@ -383,11 +388,11 @@ module axi_mrr_gateway #(
 
   always @(posedge s_axi_aclk) begin
     up_rack <= up_rreq;
+    up_wack <= up_wreq;
   end
 
   assign set_data = up_wdata;
   assign set_addr = up_waddr;
-  assign up_wack = up_wreq;
   assign set_stb = up_wreq;
 
   up_axi #(
@@ -742,6 +747,7 @@ module axi_mrr_gateway #(
   wire fft_sync_latest;
   wire fft_sync_ack;
   wire [63:0] dram_fft_buffer_debug, dram_fft_buffer_debug2;
+  wire [63:0] dram_fft_buffer_debug3, dram_fft_buffer_debug4;
   localparam i = 0;
   localparam SR_USER_REG_BASE = 160;
   mrr_dram_fft_buffer #(
@@ -861,7 +867,9 @@ module axi_mrr_gateway #(
         // Debug
         //
         .debug          (dram_fft_buffer_debug),
-        .debug2         (dram_fft_buffer_debug2)
+        .debug2         (dram_fft_buffer_debug2),
+        .debug3         (dram_fft_buffer_debug3),
+        .debug4         (dram_fft_buffer_debug4)
   );
 
   wire [15:0] fft_buff_o_tdata_scaled = (fft_norm_shift < 15) ? fft_buff_o_tdata : (fft_buff_o_tdata >> (fft_norm_shift - 14));
@@ -925,6 +933,7 @@ module axi_mrr_gateway #(
   wire iq_flush_req;
   wire iq_flush_done;
   wire [63:0] dram_iq_buffer_debug, dram_iq_buffer_debug2;
+  wire [63:0] dram_iq_buffer_debug3, dram_iq_buffer_debug4;
   localparam j = 1;
   mrr_dram_fft_buffer #(
         .DEFAULT_BASE(DEFAULT_FIFO_BASE[(30*(j+1))-1:30*j]),
@@ -1044,7 +1053,9 @@ module axi_mrr_gateway #(
         // Debug
         //
         .debug          (dram_iq_buffer_debug),
-        .debug2         (dram_iq_buffer_debug2)
+        .debug2         (dram_iq_buffer_debug2),
+        .debug3         (dram_iq_buffer_debug3),
+        .debug4         (dram_iq_buffer_debug4)
   );
 
   synchronizer #(.INITIAL_VAL(1'b0)) enable_sync_inst (.clk(adc_clk), .rst(1'b0), .in(enable), .out(enable_sync));
@@ -1130,6 +1141,7 @@ module axi_mrr_gateway #(
   //localparam SR_USER_REG_BASE = 160; (DDR control registers: 160-163)
   localparam SR_CORR_WAIT_LEN = 164;
   localparam SR_RECORD_LEN = 165;
+  localparam SR_CONTROL = 166;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1341,6 +1353,11 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(record_len), .changed());
 
+  setting_reg #(
+      .my_addr(SR_CONTROL), .awidth(8), .width(2), .at_reset(0))
+  sr_control (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out({enable,soft_reset}), .changed());
 
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
@@ -1390,6 +1407,7 @@ module axi_mrr_gateway #(
   localparam RB_DRAM4 = 5;
   localparam RB_CFO   = 6;
   localparam RB_VERSION = 7;
+  localparam RB_MASK = 8;
 //(* dont_touch="true",mark_debug="true"*) 
 //(* dont_touch="true",mark_debug="true"*) 
 //(* dont_touch="true",mark_debug="true"*) 
@@ -1399,14 +1417,27 @@ module axi_mrr_gateway #(
   wire [5:0] mrr_basic_readies, mrr_basic_valid;
   always @(*) begin
     case(up_raddr)
-      RB_READIES     : rb_data <= {mrr_basic_readies,local_readies};
-      RB_VALIDS      : rb_data <= {mrr_basic_valid,local_valids};
-      RB_DRAM        : rb_data <= dram_iq_buffer_debug;
-      RB_DRAM2       : rb_data <= dram_iq_buffer_debug2;
-      RB_DRAM3       : rb_data <= dram_fft_buffer_debug;
-      RB_DRAM4       : rb_data <= dram_fft_buffer_debug2;
-      RB_CFO         : rb_data <= cfo_search_debug;
-      RB_VERSION     : rb_data <= {32'h0,4'h0,GIT_VERSION};
+      0  : rb_data <= {mrr_basic_readies,local_readies};
+      1  : rb_data <= {mrr_basic_valid,local_valids};
+      2  : rb_data <= dram_iq_buffer_debug[63:32];
+      3  : rb_data <= dram_iq_buffer_debug[31:0];
+      4  : rb_data <= dram_iq_buffer_debug2[63:32];
+      5  : rb_data <= dram_iq_buffer_debug2[31:0];
+      6  : rb_data <= dram_iq_buffer_debug3[63:32];
+      7  : rb_data <= dram_iq_buffer_debug3[31:0];
+      8  : rb_data <= dram_iq_buffer_debug4[63:32];
+      9  : rb_data <= dram_iq_buffer_debug4[31:0];
+      10 : rb_data <= dram_fft_buffer_debug[63:32];
+      11 : rb_data <= dram_fft_buffer_debug[31:0];
+      12 : rb_data <= dram_fft_buffer_debug2[63:32];
+      13 : rb_data <= dram_fft_buffer_debug2[31:0];
+      14 : rb_data <= dram_fft_buffer_debug3[63:32];
+      15 : rb_data <= dram_fft_buffer_debug3[31:0];
+      16 : rb_data <= dram_fft_buffer_debug4[63:32];
+      17 : rb_data <= dram_fft_buffer_debug4[31:0];
+      18 : rb_data <= cfo_search_debug;
+      19 : rb_data <= {32'h0,4'h0,GIT_VERSION};
+      20 : rb_data <= primary_fft_mask_temp;
       default        : rb_data <= 64'h0BADC0DE0BADC0DE;
     endcase
   end
