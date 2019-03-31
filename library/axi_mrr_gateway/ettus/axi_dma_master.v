@@ -350,10 +350,10 @@ module axi_dma_master
    /////////////////////////////////////////////////////////////////////////////////
    assign m_axi_arid = 1'b0;
    assign m_axi_arsize = 3'h3; // 8 bytes
-   assign m_axi_arburst = `AXI4_BURST_INCR;
-   assign m_axi_arlock = `AXI4_LOCK_NORMAL;
-   assign m_axi_arcache = `AXI4_CACHE_ALLOCATE | `AXI4_CACHE_OTHER_ALLOCATE | `AXI4_CACHE_MODIFIABLE | `AXI4_CACHE_BUFFERABLE;
-   assign m_axi_arprot = `AXI4_PROT_NON_SECURE;
+   assign m_axi_arburst = 2'b01;//`AXI4_BURST_INCR;
+   assign m_axi_arlock = 1'b0;//`AXI4_LOCK_NORMAL;
+   assign m_axi_arcache = 4'b0011;//`AXI4_CACHE_ALLOCATE | `AXI4_CACHE_OTHER_ALLOCATE | `AXI4_CACHE_MODIFIABLE | `AXI4_CACHE_BUFFERABLE;
+   assign m_axi_arprot = 3'b000;//`AXI4_PROT_NON_SECURE;
    assign m_axi_arqos = 4'h0;
    assign m_axi_arregion = 4'h0;
    assign m_axi_aruser = 1'b0;
