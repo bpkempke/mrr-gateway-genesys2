@@ -196,26 +196,26 @@ module axi_mrr_gateway #(
 
   assign out_enable_i0 = (record_en_sync | ~enable_sync) ? adc_enable_i0 : adc_out_enable_i0_int;
   assign out_valid_i0  = (record_en_sync | ~enable_sync) ? adc_valid_i0  : adc_out_valid_i0_int;
-  assign out_data_i0   = (record_en_sync | ~enable_sync) ? adc_data_i0   : adc_counter;//adc_out_data_i0_int;
+  assign out_data_i0   = (record_en_sync | ~enable_sync) ? adc_data_i0   : adc_out_data_i0_int;
   assign out_enable_q0 = (record_en_sync | ~enable_sync) ? adc_enable_q0 : adc_out_enable_q0_int;
   assign out_valid_q0  = (record_en_sync | ~enable_sync) ? adc_valid_q0  : adc_out_valid_q0_int;
-  assign out_data_q0   = (record_en_sync | ~enable_sync) ? adc_data_q0   : adc_counter;//adc_out_data_q0_int;
+  assign out_data_q0   = (record_en_sync | ~enable_sync) ? adc_data_q0   : adc_out_data_q0_int;
 
   assign adc_out_enable_i0_int = 1'b1;
-  assign adc_out_valid_i0_int = ~dpti_fifo_rd_empty;
-  assign adc_out_data_i0_int = (adc_out_pingpong) ? {8'h00, dpti_fifo_rd[39:32]} : dpti_fifo_rd[15:0];
-  assign adc_out_valid_q0_int = ~dpti_fifo_rd_empty;
-  assign adc_out_data_q0_int = (adc_out_pingpong) ? 16'hC00B : dpti_fifo_rd[31:0];
+  assign adc_out_valid_i0_int = ~dpti_fifo_rd_empty & adc_valid_i0;
+  assign adc_out_data_i0_int = (adc_out_pingpong) ? 16'hC00B : dpti_fifo_rd[31:16];
+  assign adc_out_valid_q0_int = ~dpti_fifo_rd_empty & adc_valid_i0;
+  assign adc_out_data_q0_int = (adc_out_pingpong) ? {8'h00, dpti_fifo_rd[39:32]} : dpti_fifo_rd[15:0];
   assign adc_out_enable_q0_int = 1'b1;
 
-  assign dpti_fifo_rd_en = (~dpti_fifo_rd_empty) & adc_out_pingpong;
+  assign dpti_fifo_rd_en = (~dpti_fifo_rd_empty) & adc_out_pingpong & adc_valid_i0;
 
   always @(posedge adc_clk) begin
     if(ce_rst_sync | clear_sync) begin
       adc_out_pingpong <= 1'b0;
       adc_counter <= 16'h1234;
     end else begin
-      if(~dpti_fifo_rd_empty) begin
+      if(~dpti_fifo_rd_empty & adc_valid_i0) begin
           adc_out_pingpong <= ~adc_out_pingpong;
           adc_counter <= adc_counter + 1;
       end
