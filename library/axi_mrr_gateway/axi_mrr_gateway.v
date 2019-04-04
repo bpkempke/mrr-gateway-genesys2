@@ -340,7 +340,7 @@ module axi_mrr_gateway #(
     case(dpti_fifo_pre_state)
       DPTI_PRE_IDLE: begin
         save_pre_arb_idx = 1'b1;
-        dpti_fifo_pre_treadies = {{NUM_MUX_CHANNELS}{dpti_fifo_pre_tready}};
+        dpti_fifo_pre_treadies = {{NUM_MUX_CHANNELS}{dpti_fifo_pre_tready}}; //TODO: IS THIS A PROBLEM?!
         dpti_fifo_pre_tvalid = dpti_fifo_pre_arb_valid;
         dpti_fifo_pre_tdata = dpti_fifo_pre_tdatas[dpti_fifo_pre_arb_idx];
         if(dpti_fifo_pre_arb_valid & dpti_fifo_pre_tready) begin

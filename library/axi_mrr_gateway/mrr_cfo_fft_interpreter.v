@@ -204,7 +204,7 @@ wire [FFT_SHIFT_WIDTH-1:0] shift_read;
 reg [3:0] correlator_shift_phase;
 reg [CORR_MANTISSA_WIDTH-1:0] correlation_out_shift [NUM_CORRELATORS-1:0];
 reg [CORR_METADATA_WIDTH-1:0] metadata_out_shift [NUM_CORRELATORS-1:0];
-wire [CORR_WIDTH-1:0] cur_corr = correlation_out_shift[0];
+wire [CORR_WIDTH-1:0] cur_corr = {{{CORR_WIDTH-CORR_MANTISSA_WIDTH}{1'b0}},correlation_out_shift[0]};
 wire [CORR_METADATA_WIDTH-1:0] cur_metadata = metadata_out_shift[0];
 localparam CORR_SHIFT_PHASE_INCR = 0;
 localparam CORR_SHIFT_PHASE_READ = 1;
