@@ -543,7 +543,7 @@ module axi_mrr_gateway #(
     .wr_data_count(),
     .rd_clk(ce_clk),
     .dout({fifo_unused,sample_tlast,sample_tdata}),
-    .rd_en(sample_tready | sample_tready_iq),
+    .rd_en(sample_tready),
     .empty(sample_fifo_empty),
     .rd_data_count()
   );
@@ -581,7 +581,7 @@ module axi_mrr_gateway #(
     .clk(ce_clk),
     .reset(ce_rst | clear),
     .clear(clear),
-    .i_tdata({sample_tlast,sample_tdata}),
+    .i_tdata({sample_tlast,sample_tdata[31:0]}),
     .i_tvalid(sample_tvalid & sample_tready),
     .i_tready(),
     .o_tdata({sample_buff_tlast,sample_buff_tdata}),
