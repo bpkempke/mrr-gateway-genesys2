@@ -1568,11 +1568,30 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
     .o_tready(out_decoded_buff_tready)
   );
 
-  assign dpti_fifo_pre_tvalids = {out_decoded_buff_tvalid, out_corr_tvalid};
+  wire [31:0] out_corr_buff_tdata;
+  wire out_corr_buff_tlast;
+  wire out_corr_buff_tvalid;
+  wire out_corr_buff_tready;
+  axi_fifo #(
+    .WIDTH(33),
+    .SIZE(8))
+  corr_stream_buffer (
+    .clk(ce_clk),
+    .reset(ce_rst | clear),
+    .clear(clear),
+    .i_tdata({out_corr_tlast,out_corr_tdata}),
+    .i_tvalid(out_corr_tvalid),
+    .i_tready(out_corr_tready),
+    .o_tdata({out_corr_buff_tlast,out_corr_buff_tdata}),
+    .o_tvalid(out_corr_buff_tvalid),
+    .o_tready(out_corr_buff_tready)
+  );
+
+  assign dpti_fifo_pre_tvalids = {out_decoded_buff_tvalid, out_corr_buff_tvalid};
   assign replay_sample_buff_tready = replay_sample_buff_tready_receiver;
   assign out_decoded_buff_tready = dpti_fifo_pre_treadies[1];
-  assign out_corr_tready = dpti_fifo_pre_treadies[0];
+  assign out_corr_buff_tready = dpti_fifo_pre_treadies[0];
   assign dpti_fifo_pre_tdatas[1] = {out_decoded_buff_tlast, 7'd1, out_decoded_buff_tdata};
-  assign dpti_fifo_pre_tdatas[0] = {out_corr_tlast, 7'd0, out_corr_tdata};
+  assign dpti_fifo_pre_tdatas[0] = {out_corr_buff_tlast, 7'd0, out_corr_buff_tdata};
 
 endmodule

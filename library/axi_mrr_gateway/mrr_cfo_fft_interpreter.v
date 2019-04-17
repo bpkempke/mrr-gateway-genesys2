@@ -212,10 +212,34 @@ localparam CORR_SHIFT_PHASE_READ2 = 2;
 localparam CORR_SHIFT_PHASE_WRITE = 4;
 
 //Output correlator values in real-time
+reg [31:0] corr_max, corr_temp;
+reg corr_valid;
 wire first_cfo_flag = (cfo_index == 0);
-assign o_corr_tdata = {first_cfo_flag, cur_corr[30:0]};
-assign o_corr_tvalid = (correlator_shift_out & correlator_shift_phase == CORR_SHIFT_PHASE_WRITE);
-assign o_corr_tlast = (correlator_shift_counter == NUM_CORRELATORS-1);
+assign o_corr_tdata = {first_cfo_flag, corr_max[30:0]};
+assign o_corr_tvalid = corr_valid;
+assign o_corr_tlast = 1'b1;//(cfo_index == setting_primary_fft_len-1);
+
+//Only output max across correlators
+wire corr_valid_temp = (correlator_shift_out & (correlator_shift_phase == CORR_SHIFT_PHASE_WRITE));
+wire corr_last_temp = (correlator_shift_counter == NUM_CORRELATORS-1);
+wire [31:0] corr_max_temp = (cur_corr > corr_temp) ? cur_corr : corr_temp;
+always @(posedge clk) begin
+    if(rst) begin
+        corr_max <= 0;
+        corr_temp <= 0;
+        corr_valid <= 1'b0;
+    end else begin
+        corr_valid <= 1'b0;
+        if(corr_valid_temp) begin
+            corr_temp <= corr_max_temp;
+            if(corr_last_temp) begin
+                corr_max <= corr_temp;
+                corr_temp <= 0;
+                corr_valid <= 1'b1;
+            end
+        end
+    end
+end
 
 //ram_2port has the following behavior:
 // IF ena/enb == 1'b1:
