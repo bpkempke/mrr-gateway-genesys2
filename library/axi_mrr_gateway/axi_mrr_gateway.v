@@ -23,6 +23,25 @@ module axi_mrr_gateway #(
   output          out_valid_q0,
   output  [15:0]  out_data_q0,
 
+  // dac interface
+
+  output        out_dac_enable_i0,
+  output        out_dac_valid_i0,
+  input  [15:0] out_dac_data_i0,
+  output        out_dac_enable_q0,
+  output        out_dac_valid_q0,
+  input  [15:0] out_dac_data_q0,
+
+  input         dac_enable_i0,
+  input         dac_valid_i0,
+  output [15:0] dac_data_i0,
+  input         dac_enable_q0,
+  input         dac_valid_q0,
+  output [15:0] dac_data_q0,
+
+  output reg    up_enable,
+  output reg    up_txnrx,
+
   // axi interface
 
   input                 s_axi_aclk,
@@ -194,12 +213,18 @@ module axi_mrr_gateway #(
 
   reg [15:0] adc_counter;
 
-  assign out_enable_i0 = (record_en_sync | ~enable_sync) ? adc_enable_i0 : adc_out_enable_i0_int;
-  assign out_valid_i0  = (record_en_sync | ~enable_sync) ? adc_valid_i0  : adc_out_valid_i0_int;
-  assign out_data_i0   = (record_en_sync | ~enable_sync) ? adc_data_i0   : adc_out_data_i0_int;
-  assign out_enable_q0 = (record_en_sync | ~enable_sync) ? adc_enable_q0 : adc_out_enable_q0_int;
-  assign out_valid_q0  = (record_en_sync | ~enable_sync) ? adc_valid_q0  : adc_out_valid_q0_int;
-  assign out_data_q0   = (record_en_sync | ~enable_sync) ? adc_data_q0   : adc_out_data_q0_int;
+  wire bypass = (record_en_sync | ~enable_sync);
+  assign out_dac_enable_i0 = dac_enable_i0;
+  assign out_dac_valid_i0 = dac_valid_i0;
+  assign out_dac_enable_q0 = dac_enable_q0;
+  assign out_dac_valid_q0 = dac_valid_q0;
+
+  assign out_enable_i0 = (bypass) ? adc_enable_i0 : adc_out_enable_i0_int;
+  assign out_valid_i0  = (bypass) ? adc_valid_i0  : adc_out_valid_i0_int;
+  assign out_data_i0   = (bypass) ? adc_data_i0   : adc_out_data_i0_int;
+  assign out_enable_q0 = (bypass) ? adc_enable_q0 : adc_out_enable_q0_int;
+  assign out_valid_q0  = (bypass) ? adc_valid_q0  : adc_out_valid_q0_int;
+  assign out_data_q0   = (bypass) ? adc_data_q0   : adc_out_data_q0_int;
 
   assign adc_out_enable_i0_int = 1'b1;
   assign adc_out_valid_i0_int = ~dpti_fifo_rd_empty & adc_valid_i0;
@@ -551,6 +576,39 @@ module axi_mrr_gateway #(
   wire [31:0]    out_tdata;
   wire           out_tlast, out_tvalid, out_tready, out_tkeep;
   assign out_tready = 1'b1;
+
+  wire txnrx_request = out_tkeep;
+  wire txnrx_request_sync;
+  wire [31:0] out_tdata_sync;
+  synchronizer #(.INITIAL_VAL(1'b0)) txnrx_request_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(txnrx_request), .out(txnrx_request_sync));
+  synchronizer #(.WIDTH(32), .INITIAL_VAL(0)) out_tdata_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(out_tdata), .out(out_tdata_sync));
+
+  assign dac_data_i0 = (bypass) ? out_dac_data_i0 : out_tdata_sync[15:0];
+  assign dac_data_q0 = (bypass) ? out_dac_data_q0 : out_tdata_sync[31:16];
+
+  reg last_txnrx_request;
+  reg [3:0] enable_wait_counter;
+  always @(posedge s_axi_aclk) begin
+    if(~s_axi_aresetn) begin
+      up_enable <= 1'b0;
+      up_txnrx <= 1'b0;
+      last_txnrx_request <= 1'b0;
+      enable_wait_counter <= 0;
+    end else begin
+      last_txnrx_request <= txnrx_request_sync;
+      if(last_txnrx_request != txnrx_request_sync) begin
+        enable_wait_counter <= 0;
+        up_enable <= 1'b0;
+        up_txnrx <= txnrx_request_sync;
+      end else begin
+        if(enable_wait_counter < 4'hF) begin
+          enable_wait_counter <= enable_wait_counter + 1;
+        end else begin
+          up_enable <= 1'b1;
+        end
+      end
+    end
+  end
 
   wire [15:0] turnaround_ticks;
   wire [15:0] tick_rate;
