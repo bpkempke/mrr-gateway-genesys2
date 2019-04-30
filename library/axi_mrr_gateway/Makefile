@@ -25,6 +25,7 @@ GENERIC_DEPS += ettus/mult_add.v
 GENERIC_DEPS += ettus/split_complex.v
 GENERIC_DEPS += ettus/axi_defs.v
 
+GENERIC_DEPS += mrr_params.vh
 GENERIC_DEPS += git_version.vh
 GENERIC_DEPS += m_resample.v
 GENERIC_DEPS += mrr_cfo_mf_es.v

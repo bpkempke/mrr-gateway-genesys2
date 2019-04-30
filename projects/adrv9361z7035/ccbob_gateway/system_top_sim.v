@@ -10,6 +10,12 @@ module sim_top;
   reg rx_frame;
   reg [5:0] rx_data;
 
+  wire [5:0] tx_data;
+  wire tx_frame;
+  wire tx_clk;
+  wire txnrx;
+  wire enable;
+
   wire ddr3_reset_n;
   wire [14:0] ddr3_addr;
   wire [ 2:0] ddr3_ba;
@@ -95,14 +101,14 @@ module sim_top;
     .rx_frame_in_n(~rx_frame),
     .rx_data_in_p(rx_data),
     .rx_data_in_n(~rx_data),
-    .tx_clk_out_p(),
+    .tx_clk_out_p(tx_clk),
     .tx_clk_out_n(),
-    .tx_frame_out_p(),
+    .tx_frame_out_p(tx_frame),
     .tx_frame_out_n(),
-    .tx_data_out_p(),
+    .tx_data_out_p(tx_data),
     .tx_data_out_n(),
-    .txnrx(),
-    .enable(),
+    .txnrx(txnrx),
+    .enable(enable),
     .gt_ref_clk_p(sys_clk),
     .gt_ref_clk_n(~sys_clk),
     .gt_rx_p(4'd0),
