@@ -11,7 +11,7 @@ adi_ip_files axi_gpreg [list \
   "$ad_hdl_dir/library/xilinx/common/ad_rst_constr.xdc" \
   "axi_gpreg_io.v" \
   "axi_gpreg_clock_mon.v" \
-  "axi_gpreg.v" ]
+  "axi_gpreg.sv" ]
 
 adi_ip_properties axi_gpreg
 

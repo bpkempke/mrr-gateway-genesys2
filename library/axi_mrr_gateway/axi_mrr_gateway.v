@@ -460,26 +460,44 @@ module axi_mrr_gateway #(
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_reorder_factor_log2 = setting_primary_fft_len_log2-setting_primary_fft_len_decim_log2;
 
   wire ce_rst_in_sync;
-  synchronizer #(.INITIAL_VAL(1'b0)) ce_rst_sync_inst (.clk(ce_clk), .rst(1'b0), .in(ce_rst_in), .out(ce_rst_in_sync));
+  synchronizer #(.INITIAL_VAL(1'b1)) ce_rst_sync_inst (.clk(ce_clk), .rst(1'b0), .in(ce_rst_in), .out(ce_rst_in_sync));
   wire soft_reset_sync;
-  synchronizer #(.INITIAL_VAL(1'b0)) soft_reset_sync_inst (.clk(ce_clk), .rst(1'b0), .in(soft_reset), .out(soft_reset_sync));
+  synchronizer #(.INITIAL_VAL(1'b1)) soft_reset_sync_inst (.clk(ce_clk), .rst(1'b0), .in(soft_reset), .out(soft_reset_sync));
+
+  initial begin
+    ce_rst_reg = 3'b111;
+    dram_rst_reg = 3'b111;
+    dram2_rst_reg = 3'b111;
+  end
 
   reg [2:0] ce_rst_reg;
   assign ce_rst = ce_rst_reg[2];
   always @(posedge ce_clk) begin
-    ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in_sync | soft_reset_sync};
+    if(ce_rst_in_sync) begin
+      ce_rst_reg <= 3'b111;
+    end else begin
+      ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in_sync | soft_reset_sync};
+    end
   end
 
   reg [2:0] dram_rst_reg;
   wire dram_rst = dram_rst_reg[2];
   always @(posedge m_axi_aclk) begin
-    dram_rst_reg <= {dram_rst_reg[1:0], (~m_axi_aresetn) | soft_reset};
+    if(~m_axi_aresetn) begin
+      dram_rst_reg <= 3'b111;
+    end else begin
+      dram_rst_reg <= {dram_rst_reg[1:0], (~m_axi_aresetn) | soft_reset};
+    end
   end
 
   reg [2:0] dram2_rst_reg;
   wire dram2_rst = dram2_rst_reg[2];
   always @(posedge m_axi2_aclk) begin
-    dram2_rst_reg <= {dram2_rst_reg[1:0], (~m_axi2_aresetn) | soft_reset};
+    if(~m_axi2_aresetn) begin
+      dram2_rst_reg <= 3'b111;
+    end else begin
+      dram2_rst_reg <= {dram2_rst_reg[1:0], (~m_axi2_aresetn) | soft_reset};
+    end
   end
 
   /////////////////////////////////////////////////////////////
@@ -517,7 +535,7 @@ module axi_mrr_gateway #(
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len_sync;
   synchronizer #(.WIDTH(PRIMARY_FFT_MAX_LEN_LOG2+1), .INITIAL_VAL(1'b0)) setting_primary_fft_len_sync_inst (.clk(adc_clk), .rst(0), .in(setting_primary_fft_len), .out(setting_primary_fft_len_sync));
   wire ce_rst_sync;
-  synchronizer #(.INITIAL_VAL(1'b0)) ce_rst_adc_sync_inst (.clk(adc_clk), .rst(0), .in(ce_rst), .out(ce_rst_sync));
+  synchronizer #(.INITIAL_VAL(1'b1)) ce_rst_adc_sync_inst (.clk(adc_clk), .rst(0), .in(ce_rst), .out(ce_rst_sync));
   wire record_en;
   wire clear_sync;
   always @(posedge adc_clk) begin

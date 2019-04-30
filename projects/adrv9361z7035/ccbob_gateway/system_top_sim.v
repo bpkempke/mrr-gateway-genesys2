@@ -86,17 +86,6 @@ module sim_top;
     .ddr_ras_n(ddr3_ras_n),
     .ddr_reset_n(ddr3_reset_n),
     .ddr_we_n(ddr3_we_n),
-    .qspi_flash_io0_io(),
-    .qspi_flash_io1_io(),
-    .qspi_flash_io2_io(),
-    .qspi_flash_io3_io(),
-    .qspi_flash_ss_io(),
-    .sys_rst(~sys_rst),
-    .sys_clk_p(sys_clk),
-    .sys_clk_n(~sys_clk),
-    .uart_sin(),
-    .uart_sout(),
-    .fan_pwm(),
     .gpio_bd(),
     .iic_scl(),
     .iic_sda(),
@@ -114,15 +103,20 @@ module sim_top;
     .tx_data_out_n(),
     .txnrx(),
     .enable(),
+    .gt_ref_clk_p(sys_clk),
+    .gt_ref_clk_n(~sys_clk),
+    .gt_rx_p(4'd0),
+    .gt_rx_n(4'd0),
+    .clkout_in(1'b0),
     .gpio_resetb(),
     .gpio_sync(),
     .gpio_en_agc(),
     .gpio_ctl(),
     .gpio_status(),
-    .spi_csn_0(),
+    .gp_in(86'd0),
     .spi_clk(),
     .spi_mosi(),
-    .spi_miso()
+    .spi_miso(1'b0)
   );
 
   initial begin : tb_main
@@ -134,7 +128,6 @@ module sim_top;
     #500 @(posedge sys_clk);
     sys_rst = 1'b0;
     #500 @(posedge sys_clk);
-    @(posedge st1.i_system_wrapper.system_i.axi_ddr_cntrl.init_calib_complete);
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.i_up_adc_common.up_core_preset = 1'b0;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_enable_i0 = 1'b1;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_enable_q0 = 1'b1;
@@ -154,8 +147,8 @@ module sim_top;
 
   always begin
     sys_clk = 1'b1;
-    #2.5 sys_clk = 1'b0;
-    #2.5;
+    #2.0 sys_clk = 1'b0;
+    #2.0;
   end
 
   always begin
