@@ -56,9 +56,9 @@ module system_top (
   inout           fixed_io_ddr_vrn,
   inout           fixed_io_ddr_vrp,
   inout   [53:0]  fixed_io_mio,
-  inout           fixed_io_ps_clk,
-  inout           fixed_io_ps_porb,
-  inout           fixed_io_ps_srstb,
+  input           fixed_io_ps_clk,
+  input           fixed_io_ps_porb,
+  input           fixed_io_ps_srstb,
 
   inout           iic_scl,
   inout           iic_sda,

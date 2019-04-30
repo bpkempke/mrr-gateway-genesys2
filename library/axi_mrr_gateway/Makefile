@@ -5,6 +5,7 @@ GENERIC_DEPS += ettus/axi_pipe_join.v
 GENERIC_DEPS += ettus/complex_to_magsq.v
 GENERIC_DEPS += ettus/mult.v
 GENERIC_DEPS += ettus/synchronizer_impl.v
+GENERIC_DEPS += ettus/axi_mux.v
 GENERIC_DEPS += ettus/axi_fifo_bram.v
 GENERIC_DEPS += ettus/axi_fifo_short.v
 GENERIC_DEPS += ettus/axi_pipe_mac.v

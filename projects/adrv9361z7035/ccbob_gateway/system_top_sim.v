@@ -1,6 +1,8 @@
 
 `timescale 1ns/1ps
 
+`define zynq st1.i_system_wrapper.system_i.sys_ps7.inst
+
 module sim_top;
 
   reg sys_clk;
@@ -109,8 +111,11 @@ module sim_top;
     .tx_data_out_n(),
     .txnrx(txnrx),
     .enable(enable),
-    .gt_ref_clk_p(sys_clk),
-    .gt_ref_clk_n(~sys_clk),
+    .fixed_io_ps_clk(sys_clk),
+    .fixed_io_ps_porb(~sys_rst),
+    .fixed_io_ps_srstb(~sys_rst),
+    .gt_ref_clk_p(),
+    .gt_ref_clk_n(),
     .gt_rx_p(4'd0),
     .gt_rx_n(4'd0),
     .clkout_in(1'b0),
@@ -131,13 +136,20 @@ module sim_top;
     rx_frame = 1'b1;
     rx_data = 6'd0;
     rx_clk = 1'b0;
-    #500 @(posedge sys_clk);
+
+    //Reset Zynq so that it can respond to memory accesses
+    `zynq.fpga_soft_reset(32'hF);
+    repeat(16)  @(posedge sys_clk);
     sys_rst = 1'b0;
+    `zynq.fpga_soft_reset(32'h0);
+    repeat(100) @(posedge `zynq.FCLK_CLK0);
+    
     #500 @(posedge sys_clk);
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.i_up_adc_common.up_core_preset = 1'b0;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_enable_i0 = 1'b1;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_enable_q0 = 1'b1;
     force st1.i_system_wrapper.system_i.axi_ad9361.inst.i_rx.adc_r1_mode = 1'b1;
+    force st1.i_system_wrapper.system_i.mrr_gateway.inst.enable = 1'b1;
     force st1.gpio_o[47] = 1'b1;
     force st1.gpio_o[31] = 1'b1;
     #5000000 @(posedge sys_clk);

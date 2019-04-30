@@ -11,6 +11,7 @@ adi_ip_files axi_mrr_gateway [list \
   "ettus/complex_to_magsq.v" \
   "ettus/mult.v" \
   "ettus/synchronizer_impl.v" \
+  "ettus/axi_mux.v" \
   "ettus/axi_fifo_bram.v" \
   "ettus/axi_fifo_short.v" \
   "ettus/axi_pipe_mac.v" \
