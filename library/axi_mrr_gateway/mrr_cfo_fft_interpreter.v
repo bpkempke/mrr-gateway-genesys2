@@ -264,7 +264,7 @@ always @(posedge clk) begin
             if(max_corr_rddata > highest_corr) begin
                 highest_corr <= max_corr_rddata;
                 highest_corr_idx <= cfo_index_last;
-                highest_corr_triggered_threshold <= (highest_corr > threshold_in);
+                highest_corr_triggered_threshold <= (max_corr_rddata > threshold_in);
             end
         end
     end
