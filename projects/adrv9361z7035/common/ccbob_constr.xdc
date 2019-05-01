@@ -154,13 +154,13 @@ set_property  -dict {PACKAGE_PIN  G7      IOSTANDARD  LVCMOS18} [get_ports  gp_i
 set_property  -dict {PACKAGE_PIN  E7      IOSTANDARD  LVCMOS18} [get_ports  gp_out[54]]   ; ## U1,E7,IO_L11_SRCC_34_JX4_N,JX4,47,IO_L11_SRCC_34_JX4_N,P6,32
 set_property  -dict {PACKAGE_PIN  F7      IOSTANDARD  LVCMOS18} [get_ports  gp_in[54]]    ; ## U1,F7,IO_L12_MRCC_34_JX4_N,JX4,48,IO_L12_MRCC_34_JX4_N,P6,31
 set_property  -dict {PACKAGE_PIN  C8      IOSTANDARD  LVCMOS18} [get_ports  gp_out[55]]   ; ## U1,C8,IO_L13_MRCC_34_JX4_P,JX4,51,IO_L13_MRCC_34_JX4_P,P7,2
-set_property  -dict {PACKAGE_PIN  D6      IOSTANDARD  LVCMOS18} [get_ports  gp_in[55]]    ; ## U1,D6,IO_L14_SRCC_34_JX4_P,JX4,52,IO_L14_SRCC_34_JX4_P,P7,1
+set_property  -dict {PACKAGE_PIN  D6      IOSTANDARD  LVCMOS18} [get_ports  gateway_filterboard[0]]   ; ## U1,D6,IO_L14_SRCC_34_JX4_P,JX4,52,IO_L14_SRCC_34_JX4_P,P7,1
 set_property  -dict {PACKAGE_PIN  C7      IOSTANDARD  LVCMOS18} [get_ports  gp_out[56]]   ; ## U1,C7,IO_L13_MRCC_34_JX4_N,JX4,53,IO_L13_MRCC_34_JX4_N,P7,4
-set_property  -dict {PACKAGE_PIN  C6      IOSTANDARD  LVCMOS18} [get_ports  gp_in[56]]    ; ## U1,C6,IO_L14_SRCC_34_JX4_N,JX4,54,IO_L14_SRCC_34_JX4_N,P7,3
+set_property  -dict {PACKAGE_PIN  C6      IOSTANDARD  LVCMOS18} [get_ports  gateway_filterboard[1]]   ; ## U1,C6,IO_L14_SRCC_34_JX4_N,JX4,54,IO_L14_SRCC_34_JX4_N,P7,3
 set_property  -dict {PACKAGE_PIN  C9      IOSTANDARD  LVCMOS18} [get_ports  gp_out[57]]   ; ## U1,C9,IO_L15_34_JX4_P,JX4,57,IO_L15_34_JX4_P,P7,6
-set_property  -dict {PACKAGE_PIN  B10     IOSTANDARD  LVCMOS18} [get_ports  gp_in[57]]    ; ## U1,B10,IO_L16_34_JX4_P,JX4,58,IO_L16_34_JX4_P,P7,5
+set_property  -dict {PACKAGE_PIN  B10     IOSTANDARD  LVCMOS18} [get_ports  gateway_filterboard[2]]   ; ## U1,B10,IO_L16_34_JX4_P,JX4,58,IO_L16_34_JX4_P,P7,5
 set_property  -dict {PACKAGE_PIN  B9      IOSTANDARD  LVCMOS18} [get_ports  gp_out[58]]   ; ## U1,B9,IO_L15_34_JX4_N,JX4,59,IO_L15_34_JX4_N,P7,8
-set_property  -dict {PACKAGE_PIN  A10     IOSTANDARD  LVCMOS18} [get_ports  gp_in[58]]    ; ## U1,A10,IO_L16_34_JX4_N,JX4,60,IO_L16_34_JX4_N,P7,7
+set_property  -dict {PACKAGE_PIN  A10     IOSTANDARD  LVCMOS18} [get_ports  gateway_filterboard[3]]   ; ## U1,A10,IO_L16_34_JX4_N,JX4,60,IO_L16_34_JX4_N,P7,7
 set_property  -dict {PACKAGE_PIN  C4      IOSTANDARD  LVCMOS18} [get_ports  gp_out[59]]   ; ## U1,C4,IO_L19_34_JX4_P,JX4,73,IO_L19_34_JX4_P,P7,18
 set_property  -dict {PACKAGE_PIN  B5      IOSTANDARD  LVCMOS18} [get_ports  gp_in[59]]    ; ## U1,B5,IO_L20_34_JX4_P,JX4,74,IO_L20_34_JX4_P,P7,17
 set_property  -dict {PACKAGE_PIN  C3      IOSTANDARD  LVCMOS18} [get_ports  gp_out[60]]   ; ## U1,C3,IO_L19_34_JX4_N,JX4,75,IO_L19_34_JX4_N,P7,20

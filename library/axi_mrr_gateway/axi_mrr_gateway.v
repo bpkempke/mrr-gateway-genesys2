@@ -157,6 +157,8 @@ module axi_mrr_gateway #(
   input         m_axi2_rvalid,   // Read valid. This signal indicates that the channel is signaling the required read data. 
   output        m_axi2_rready,   // Read ready. This signal indicates that the master can accept the read data and response
 
+  output [3:0] filterboard,
+
   output [15:0] debug
 );
   localparam NUM_INPUTS = 1; //Input Port 0: IQ Data (input-output synchronized)
@@ -165,6 +167,9 @@ module axi_mrr_gateway #(
                              //Output Port 1: Decoded Soft Symbols
   `include "mrr_params.vh"
   `include "git_version.vh"
+
+  //TODO: Placeholder for filterboard outputs
+  assign filterboard = 4'd0;
 
   //TODO: Any other valid sources for 'clear' signal?
   wire enable;

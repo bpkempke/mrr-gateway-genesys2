@@ -7,6 +7,7 @@ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:iic_rtl:1.0 iic_main
 create_bd_intf_port -mode Master -vlnv xilinx.com:display_processing_system7:fixedio_rtl:1.0 fixed_io
 
 create_bd_port -dir O -from 15 -to 0 gateway_debug
+create_bd_port -dir O -from 3 -to 0 gateway_filterboard
 
 create_bd_port -dir O spi0_csn_2_o
 create_bd_port -dir O spi0_csn_1_o
@@ -230,6 +231,7 @@ ad_connect axi_ad9361/adc_valid_q0 mrr_gateway/adc_valid_q0
 ad_connect axi_ad9361/adc_data_q0 mrr_gateway/adc_data_q0
 ad_connect axi_ad9361/l_clk mrr_gateway/adc_clk
 ad_connect gateway_debug mrr_gateway/debug
+ad_connect gateway_filterboard mrr_gateway/filterboard
 
 ad_connect sys_rstgen/peripheral_aresetn peripheral_aresetn
 
