@@ -220,14 +220,15 @@ reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] cfo_index_last;
 reg [CORR_WIDTH-1:0] highest_corr;
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] highest_corr_idx;
 reg highest_corr_triggered_threshold;
-wire [NUM_CORRELATORS_LOG2-1:0] highest_corr_sfo_idx;
+wire [NUM_CORRELATORS_LOG2-1:0] max_corr_sfo_idx;
+reg [NUM_CORRELATORS_LOG2-1:0] highest_corr_sfo_idx;
 reg [NUM_CORRELATORS_LOG2-1:0] cur_corr_sfo_max;
 ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) max_corr_ram (
     .clka(clk),
     .ena(1'b1),
-    .wea(o_corr_tvalid),
-    .addra(cfo_index),
-    .dia((cur_corr > cur_corr_max) ? {correlator_shift_counter,cur_corr} : {cur_corr_sfo_max,cur_corr_max}),
+    .wea(blank_highest_corr | o_corr_tvalid),
+    .addra((blank_highest_corr) ? highest_corr_idx : cfo_index),
+    .dia((blank_highest_corr) ? 0 : (cur_corr > cur_corr_max) ? {correlator_shift_counter,cur_corr} : {cur_corr_sfo_max,cur_corr_max}),
     .doa(),
 
     .clkb(clk),
@@ -235,7 +236,7 @@ ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2), .AWIDTH(PRIMARY_FFT_MAX_LE
     .web(1'b0),
     .addrb(cfo_index),
     .dib(),
-    .dob({highest_corr_sfo_idx,max_corr_rddata})
+    .dob({max_corr_sfo_idx,max_corr_rddata})
 );
 
 always @(posedge clk) begin
@@ -244,6 +245,7 @@ always @(posedge clk) begin
         cur_corr_sfo_max <= 0;
         highest_corr <= 0;
         highest_corr_idx <= 0;
+        highest_corr_sfo_idx <= 0;
         highest_corr_triggered_threshold <= 1'b0;
         cfo_index_last <= 0;
     end else begin
@@ -258,12 +260,12 @@ always @(posedge clk) begin
         cfo_index_last <= cfo_index;
         if(blank_highest_corr) begin
             highest_corr <= 0;
-            highest_corr_idx <= 0;
             highest_corr_triggered_threshold <= 1'b0;
         end else if(search_highest_corr) begin
             if(max_corr_rddata > highest_corr) begin
                 highest_corr <= max_corr_rddata;
                 highest_corr_idx <= cfo_index_last;
+                highest_corr_sfo_idx <= max_corr_sfo_idx;
                 highest_corr_triggered_threshold <= (max_corr_rddata > threshold_in);
             end
         end
