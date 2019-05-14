@@ -121,7 +121,7 @@ module system_top (
   assign clkout_out = clkout_in;
   assign gp_out[85:0] = gp_out_s[85:0];
   assign gp_in_s[95:55] = gp_out_s[95:55];
-  assign gp_in_s[54: 0] = gp_in[55:0];
+  assign gp_in_s[54: 0] = gp_in[54:0];
 
   wire peripheral_aresetn;
   assign gpio_resetb = peripheral_aresetn;

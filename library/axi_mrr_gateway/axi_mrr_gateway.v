@@ -169,7 +169,7 @@ module axi_mrr_gateway #(
   `include "git_version.vh"
 
   //TODO: Placeholder for filterboard outputs
-  assign filterboard = 4'd0;
+  assign filterboard = 4'hF;
 
   //TODO: Any other valid sources for 'clear' signal?
   wire enable;
