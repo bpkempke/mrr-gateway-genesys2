@@ -168,9 +168,7 @@ module axi_mrr_gateway #(
   `include "mrr_params.vh"
   `include "git_version.vh"
 
-  //TODO: Placeholder for filterboard outputs
-  assign filterboard = 4'hF;
-
+  
   //TODO: Any other valid sources for 'clear' signal?
   wire enable;
   wire soft_reset;
@@ -1147,6 +1145,7 @@ module axi_mrr_gateway #(
   localparam SR_CORR_WAIT_LEN = 164;
   localparam SR_RECORD_LEN = 165;
   localparam SR_CONTROL = 166;
+  localparam SR_FILTERBOARD = 167;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1363,6 +1362,25 @@ module axi_mrr_gateway #(
   sr_control (
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out({enable,soft_reset}), .changed());
+
+  //Filterboard outputs:
+  // filterboard[0]:
+  //    0: 915 MHz RF path select
+  //    1: 868 MHz RF path select
+  // filterboard[1]:
+  //    0: TX PA Disable
+  //    1: TX PA Enable
+  // filterboard[2]:
+  //    0: Transmit select
+  //    1: Receive select
+  // filterboard[3]:
+  //    0: Filterboard 3V3 OFF
+  //    1: Filterboard 3V3 ON
+  setting_reg #(
+      .my_addr(SR_FILTERBOARD), .awidth(8), .width(4), .at_reset(4'b1101))
+  sr_filterboard (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(filterboard), .changed());
 
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
