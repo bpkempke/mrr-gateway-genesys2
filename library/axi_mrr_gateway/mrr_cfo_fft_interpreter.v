@@ -658,6 +658,8 @@ always @(posedge clk) begin
     end
 end
 
+wire all_pathways_occupied = ((recently_assigned | currently_decoding) == {{NUM_DECODE_PATHWAYS}{1'b1}});
+
 always @* begin
     next_assignment_state = assignment_state;
     incr_assignment_write_idx = 1'b0;
@@ -983,7 +985,6 @@ end
 
 // Logic for keeping track of SFO search state
 integer i;
-integer pathway_idx;
 always @* begin
     next_state = state;
     reset_state = 1'b0;
@@ -1095,7 +1096,9 @@ always @* begin
             search_highest_corr = 1'b1;
             cfo_index_incr = 1'b1;
             if(cfo_index_reversed == setting_primary_fft_len-1) begin
-                if(highest_corr_triggered_threshold) begin
+                if(all_pathways_occupied) begin
+                    next_state = STATE_SYNC_ALL_SAMPLES2;
+                end else if(highest_corr_triggered_threshold) begin
                     next_state = STATE_ASSIGN_TO_DECODE_PATHWAY;
                 end else begin
                     next_state = STATE_SEARCH_DONE;
@@ -1117,8 +1120,8 @@ always @* begin
         // matched filtering) for them to subsequently search time offset
         STATE_SEARCH_DONE: begin
             historic_sample_counter_reset = 1'b1;
-            for(pathway_idx=0; pathway_idx<NUM_DECODE_PATHWAYS; pathway_idx=pathway_idx+1) begin
-                o_pathway_reset[pathway_idx] = recently_assigned[pathway_idx] & (global_search_idx[occupied_idx] < GLOBAL_SEARCH_LEN);
+            for(i=0; i<NUM_DECODE_PATHWAYS; i=i+1) begin
+                o_pathway_reset[i] = recently_assigned[i] & (global_search_idx[i] < GLOBAL_SEARCH_LEN);
             end
             next_state = STATE_REPLAY_CORR_SAMPLES;
         end
