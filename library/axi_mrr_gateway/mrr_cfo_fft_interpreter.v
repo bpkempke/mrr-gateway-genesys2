@@ -1097,7 +1097,7 @@ always @* begin
             cfo_index_incr = 1'b1;
             if(cfo_index_reversed == setting_primary_fft_len-1) begin
                 if(all_pathways_occupied) begin
-                    next_state = STATE_SYNC_ALL_SAMPLES2;
+                    next_state = STATE_SEARCH_DONE;
                 end else if(highest_corr_triggered_threshold) begin
                     next_state = STATE_ASSIGN_TO_DECODE_PATHWAY;
                 end else begin
