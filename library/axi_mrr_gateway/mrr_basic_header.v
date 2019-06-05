@@ -128,10 +128,10 @@ cfo_search_debug
     output o_tlast;
     output o_tvalid;
     input o_tready;
-    output [31:0] o_decoded_tdata;
-    output o_decoded_tvalid;
-    output o_decoded_tlast;
-    input o_decoded_tready;
+    output [32*NUM_DECODE_PATHWAYS-1:0] o_decoded_tdata;
+    output [NUM_DECODE_PATHWAYS-1:0] o_decoded_tvalid;
+    output [NUM_DECODE_PATHWAYS-1:0] o_decoded_tlast;
+    input [NUM_DECODE_PATHWAYS-1:0] o_decoded_tready;
     output [31:0] o_corr_tdata;
     output o_corr_tvalid;
     output o_corr_tlast;
@@ -161,11 +161,6 @@ cfo_search_debug
     output [5:0] readies;
     output [5:0] valids;
     output [63:0] cfo_search_debug;
-
-    wire [NUM_DECODE_PATHWAYS*32-1:0] decoded_tdata;
-    wire [NUM_DECODE_PATHWAYS-1:0] decoded_tvalid;
-    wire [NUM_DECODE_PATHWAYS-1:0] decoded_tlast;
-    wire [NUM_DECODE_PATHWAYS-1:0] decoded_tready;
 
     /***************Internal Signal Assignment*************/
     
@@ -322,31 +317,16 @@ cfo_search_debug
                 .o_tvalid(o_tvalid),
                 .o_tready(o_tready),
                 .o_tkeep(o_tkeep),
-                .o_decoded_tdata(decoded_tdata[32*(pathway_idx+1)-1-:32]),
-                .o_decoded_tvalid(decoded_tvalid[pathway_idx]),
-                .o_decoded_tlast(decoded_tlast[pathway_idx]),
-                .o_decoded_tready(decoded_tready[pathway_idx]),
+                .o_decoded_tdata(o_decoded_tdata[32*(pathway_idx+1)-1-:32]),
+                .o_decoded_tvalid(o_decoded_tvalid[pathway_idx]),
+                .o_decoded_tlast(o_decoded_tlast[pathway_idx]),
+                .o_decoded_tready(o_decoded_tready[pathway_idx]),
                 .currently_decoding(currently_decoding[pathway_idx]),
                 .detector_reset(detector_reset[pathway_idx])
             );
 
         end
     endgenerate
-
-    //Merge all decoded data into one stream
-    axi_mux #(.WIDTH(32),.SIZE(NUM_DECODE_PATHWAYS)) inst_o_mux (
-        .clk(clk),
-        .reset(rst),
-        .clear(1'b0),
-        .i_tdata(decoded_tdata),
-        .i_tlast(decoded_tlast),
-        .i_tvalid(decoded_tvalid),
-        .i_tready(decoded_tready),
-        .o_tdata(o_decoded_tdata),
-        .o_tlast(o_decoded_tlast),
-        .o_tvalid(o_decoded_tvalid),
-        .o_tready(o_decoded_tready)
-    );
 
     assign readies = {i_tready_fft, i_tready, o_tready, o_decoded_tready, cfo_tready, sfo_tready};
     assign valids = {i_tvalid_fft, i_tvalid, o_tvalid, o_decoded_tvalid, cfo_tvalid, sfo_tvalid};

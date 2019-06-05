@@ -273,8 +273,8 @@ module axi_mrr_gateway #(
 
   //out_decoded_tlast,7'd0,out_decoded_tdata}),
   //out_decoded_tvalid
-  localparam NUM_MUX_CHANNELS = 3;
-  localparam NUM_MUX_CHANNELS_LOG2 = 2;
+  localparam NUM_MUX_CHANNELS = 2+NUM_DECODE_PATHWAYS;
+  localparam NUM_MUX_CHANNELS_LOG2 = 3; //TODO: How to calculate this?!
   wire [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_tvalids;
   reg [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_treadies;
   wire [39:0] dpti_fifo_pre_tdatas [NUM_MUX_CHANNELS-1:0];
@@ -1138,31 +1138,10 @@ module axi_mrr_gateway #(
   synchronizer #(.INITIAL_VAL(1'b0)) record_en_sync_inst (.clk(adc_clk), .rst(1'b0), .in(record_en), .out(record_en_sync));
   synchronizer #(.INITIAL_VAL(1'b0)) clear_sync_inst (.clk(adc_clk), .rst(1'b0), .in(clear), .out(clear_sync));
 
-  wire [31:0] out_decoded_tdata_post;
-  wire [31:0] out_decoded_tdata;
-  wire [39:0] out_decoded_tdata_post_unused;
-  wire out_decoded_tempty_post;
-  wire out_decoded_tlast, out_decoded_tvalid, out_decoded_tready;
-  fifo_short_2clk output_samples_fifo (
-    .rst(ce_rst | clear),
-    .wr_clk(ce_clk),
-    .din({40'd0,out_decoded_tdata}),
-    .wr_en(out_decoded_tvalid),
-    .full(),
-    .wr_data_count(),
-    .rd_clk(adc_clk),
-    .dout({out_decoded_tdata_post_unused,out_decoded_tdata_post}),
-    .rd_en(1'b1),
-    .empty(out_decoded_tempty_post),
-    .rd_data_count()
-  );
-
-  //assign out_enable_i0 = (enable_sync) ? 1'b1 : adc_enable_i0;
-  //assign out_enable_q0 = (enable_sync) ? 1'b1 : adc_enable_q0;
-  //assign out_valid_i0  = (enable_sync) ? ~out_decoded_tempty_post : adc_valid_i0;
-  //assign out_valid_q0  = (enable_sync) ? ~out_decoded_tempty_post : adc_valid_q0;
-  //assign out_data_i0   = (enable_sync) ? out_decoded_tdata_post[31:16] : adc_data_i0;
-  //assign out_data_q0   = (enable_sync) ? out_decoded_tdata_post[15:0] : adc_data_q0;
+  wire [32*NUM_DECODE_PATHWAYS-1:0] out_decoded_tdata;
+  wire [NUM_DECODE_PATHWAYS-1:0] out_decoded_tlast;
+  wire [NUM_DECODE_PATHWAYS-1:0] out_decoded_tvalid;
+  wire [NUM_DECODE_PATHWAYS-1:0] out_decoded_tready;
 
   //A separate port is used to push out decoded data
   wire pause_block;
@@ -1625,24 +1604,34 @@ module axi_mrr_gateway #(
 assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_tvalids, dpti_fifo_pre_treadies};
 //assign debug = primary_fft_mask_temp[15:0];
 
-  wire [31:0] out_decoded_buff_tdata;
-  wire out_decoded_buff_tlast;
-  wire out_decoded_buff_tvalid;
-  wire out_decoded_buff_tready;
-  axi_fifo #(
-    .WIDTH(33),
-    .SIZE(8))
-  decoded_stream_buffer (
-    .clk(ce_clk),
-    .reset(ce_rst | clear),
-    .clear(clear),
-    .i_tdata({out_decoded_tlast,out_decoded_tdata}),
-    .i_tvalid(out_decoded_tvalid),
-    .i_tready(out_decoded_tready),
-    .o_tdata({out_decoded_buff_tlast,out_decoded_buff_tdata}),
-    .o_tvalid(out_decoded_buff_tvalid),
-    .o_tready(out_decoded_buff_tready)
-  );
+  wire [32*NUM_DECODE_PATHWAYS-1:0] out_decoded_buff_tdata;
+  wire [NUM_DECODE_PATHWAYS-1:0] out_decoded_buff_tlast;
+  wire [NUM_DECODE_PATHWAYS-1:0] out_decoded_buff_tvalid;
+  wire [NUM_DECODE_PATHWAYS-1:0] out_decoded_buff_tready;
+  genvar d_idx;
+  generate
+    for(d_idx = 0; d_idx < NUM_DECODE_PATHWAYS; d_idx=d_idx+1) begin : decode_pathway_gen
+      assign dpti_fifo_pre_tdatas[1+d_idx][39] = out_decoded_buff_tlast[d_idx];
+      assign dpti_fifo_pre_tdatas[1+d_idx][38-:7] = d_idx;
+      assign dpti_fifo_pre_tdatas[1+d_idx][31:0] = out_decoded_buff_tdata[d_idx];
+      assign out_decoded_buff_tready[d_idx] = dpti_fifo_pre_treadies[1+d_idx];
+      assign dpti_fifo_pre_tvalids[1+d_idx] = out_decoded_buff_tvalid[d_idx];
+      axi_fifo #(
+        .WIDTH(33),
+        .SIZE(8))
+      decoded_stream_buffer (
+        .clk(ce_clk),
+        .reset(ce_rst | clear),
+        .clear(clear),
+        .i_tdata({out_decoded_tlast[d_idx],out_decoded_tdata[32*d_idx-1-:32]}),
+        .i_tvalid(out_decoded_tvalid[d_idx]),
+        .i_tready(out_decoded_tready[d_idx]),
+        .o_tdata({out_decoded_buff_tlast[d_idx],out_decoded_buff_tdata[32*d_idx-1-:32]}),
+        .o_tvalid(out_decoded_buff_tvalid[d_idx]),
+        .o_tready(out_decoded_buff_tready[d_idx])
+      );
+    end
+  endgenerate
 
   wire [31:0] out_corr_buff_tdata;
   wire out_corr_buff_tlast;
@@ -1663,11 +1652,9 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
     .o_tready(out_corr_buff_tready)
   );
 
-  assign dpti_fifo_pre_tvalids = {out_decoded_buff_tvalid, out_corr_buff_tvalid};
+  assign dpti_fifo_pre_tvalids[0] = out_corr_buff_tvalid;
   assign replay_sample_buff_tready = replay_sample_buff_tready_receiver;
-  assign out_decoded_buff_tready = dpti_fifo_pre_treadies[1];
   assign out_corr_buff_tready = dpti_fifo_pre_treadies[0];
-  assign dpti_fifo_pre_tdatas[1] = {out_decoded_buff_tlast, 7'd1, out_decoded_buff_tdata};
   assign dpti_fifo_pre_tdatas[0] = {out_corr_buff_tlast, 7'd0, out_corr_buff_tdata};
 
 endmodule
