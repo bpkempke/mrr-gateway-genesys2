@@ -1610,7 +1610,7 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
   wire [NUM_DECODE_PATHWAYS-1:0] out_decoded_buff_tready;
   genvar d_idx;
   generate
-    for(d_idx = 0; d_idx < NUM_DECODE_PATHWAYS; d_idx=d_idx+1) begin : decode_pathway_gen
+    for(d_idx = 0; d_idx < NUM_DECODE_PATHWAYS; d_idx=d_idx+1) begin
       assign dpti_fifo_pre_tdatas[1+d_idx][39] = out_decoded_buff_tlast[d_idx];
       assign dpti_fifo_pre_tdatas[1+d_idx][38-:7] = d_idx;
       assign dpti_fifo_pre_tdatas[1+d_idx][31:0] = out_decoded_buff_tdata[d_idx];
@@ -1619,14 +1619,14 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
       axi_fifo #(
         .WIDTH(33),
         .SIZE(8))
-      decoded_stream_buffer (
+      inst_dsb (
         .clk(ce_clk),
         .reset(ce_rst | clear),
         .clear(clear),
-        .i_tdata({out_decoded_tlast[d_idx],out_decoded_tdata[32*d_idx-1-:32]}),
+        .i_tdata({out_decoded_tlast[d_idx],out_decoded_tdata[32*(d_idx+1)-1-:32]}),
         .i_tvalid(out_decoded_tvalid[d_idx]),
         .i_tready(out_decoded_tready[d_idx]),
-        .o_tdata({out_decoded_buff_tlast[d_idx],out_decoded_buff_tdata[32*d_idx-1-:32]}),
+        .o_tdata({out_decoded_buff_tlast[d_idx],out_decoded_buff_tdata[32*(d_idx+1)-1-:32]}),
         .o_tvalid(out_decoded_buff_tvalid[d_idx]),
         .o_tready(out_decoded_buff_tready[d_idx])
       );
