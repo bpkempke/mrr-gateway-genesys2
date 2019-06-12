@@ -451,13 +451,13 @@ module axi_mrr_gateway #(
   reg [2:0] dram_rst_reg;
   wire dram_rst = dram_rst_reg[2];
   always @(posedge m_axi_aclk) begin
-    dram_rst_reg <= {dram_rst_reg[1:0], (~m_axi_aresetn) | soft_reset};
+    dram_rst_reg <= {dram_rst_reg[1:0], ~m_axi_aresetn};
   end
 
   reg [2:0] dram2_rst_reg;
   wire dram2_rst = dram2_rst_reg[2];
   always @(posedge m_axi2_aclk) begin
-    dram2_rst_reg <= {dram2_rst_reg[1:0], (~m_axi2_aresetn) | soft_reset};
+    dram2_rst_reg <= {dram2_rst_reg[1:0], ~m_axi2_aresetn};
   end
 
   /////////////////////////////////////////////////////////////
@@ -763,7 +763,7 @@ module axi_mrr_gateway #(
         //
         // Clocks and reset
         //
-        .bus_clk(ce_clk), .bus_reset(ce_rst | clear),
+        .bus_clk(ce_clk), .bus_reset(ce_rst),
         .dram_clk(m_axi_aclk), .dram_reset(dram_rst),
         //
         // AXI Write address channel
@@ -948,7 +948,7 @@ module axi_mrr_gateway #(
         //
         // Clocks and reset
         //
-        .bus_clk(ce_clk), .bus_reset(ce_rst | clear),
+        .bus_clk(ce_clk), .bus_reset(ce_rst),
         .dram_clk(m_axi2_aclk), .dram_reset(dram2_rst),
         //
         // AXI Write address channel
