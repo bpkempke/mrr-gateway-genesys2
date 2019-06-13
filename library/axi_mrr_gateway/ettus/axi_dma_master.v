@@ -10,6 +10,7 @@ module axi_dma_master
   (
    input aclk,                    // Global AXI clock
    input areset,                 // Global AXI reset
+   input clear,
    //
    // AXI Write address channel
    //
@@ -304,7 +305,7 @@ module axi_dma_master
 	    enable_data_write <= 1'b1;
 	    m_axi_wlast <= 1'b0;
 	    
-	    if (write_data_valid && m_axi_wready) begin
+	    if ((write_data_valid || clear) && m_axi_wready) begin
 	      // Single write transfer
 	       write_data_count <= write_data_count + 1;
 	    
@@ -322,7 +323,7 @@ module axi_dma_master
 	 // DW_LAST
 	 //
 	 DW_LAST: begin
-	    if (write_data_valid && m_axi_wready) begin
+	    if ((write_data_valid || clear) && m_axi_wready) begin
 	       enable_data_write <= 1'b0;
 	       write_data_state <= DW_IDLE;
 	       m_axi_wlast <= 1'b0;
@@ -340,7 +341,7 @@ module axi_dma_master
    
 	       
    assign m_axi_wdata = write_data;
-   assign m_axi_wvalid = enable_data_write && write_data_valid;
+   assign m_axi_wvalid = enable_data_write && (write_data_valid || clear);
    assign write_data_ready = enable_data_write && m_axi_wready;
 
    /////////////////////////////////////////////////////////////////////////////////
@@ -483,7 +484,7 @@ module axi_dma_master
 	 DR_RUN : begin
 	    enable_data_read <= 1'b1;
 	     
-	    if (read_data_ready && m_axi_rvalid) begin
+	    if ((read_data_ready || clear) && m_axi_rvalid) begin
 	      // Single read transfer
 	       read_data_count <= read_data_count + 1;
 	       if ((m_axi_rresp == `AXI4_RESP_SLVERR) ||  (m_axi_rresp == `AXI4_RESP_DECERR)) begin
@@ -510,7 +511,7 @@ module axi_dma_master
 	 // Something bad happened, wait for last signalled in this burst
 	 //
 	 DR_WAIT_ERROR: begin
-	    if (read_data_ready && m_axi_rvalid && m_axi_rlast) begin
+	    if ((read_data_ready || clear) && m_axi_rvalid && m_axi_rlast) begin
 	       enable_data_read <= 1'b0;
 	       read_data_state <= DR_ERROR;
 	    end else begin
@@ -532,7 +533,7 @@ module axi_dma_master
    
 	       
    assign read_data = m_axi_rdata;
-   assign m_axi_rready = enable_data_read && read_data_ready;
+   assign m_axi_rready = enable_data_read && (read_data_ready || clear);
    assign read_data_valid = enable_data_read && m_axi_rvalid;
 			   
 endmodule // axi_dma_master

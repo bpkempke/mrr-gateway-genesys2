@@ -871,7 +871,7 @@ debug4
          INPUT_IDLE: begin
             write_ctrl_valid <= 1'b0;
             update_write <= 1'b0;
-            if (1'b1) begin//TODO: FOR NOW, IGNORE SPACE! space > 255) begin // Space in the DRAM FIFO
+            if (write_ctrl_ready) begin//TODO: FOR NOW, IGNORE SPACE! space > 255) begin // Space in the DRAM FIFO
                if (input_timeout_triggered) begin // input FIFO timeout waiting for new data.
                   input_state <= INPUT2;
                   input_timeout_reset <= 1'b1;
@@ -895,7 +895,7 @@ debug4
             write_count <= (input_page_boundry < 255) ? input_page_boundry[7:0] : 8'd255;
             write_ctrl_valid <= 1'b1;
             if (write_ctrl_ready)
-               input_state <= INPUT4; // Pre-emptive ACK
+               input_state <= INPUT5; // Pre-emptive ACK
             else
                input_state <= INPUT3; // Wait for ACK
          end
@@ -910,7 +910,7 @@ debug4
             write_count <= setting_input_frame_size_mask_sync;//(1 << INPUT_FRAME_SIZE_LOG2)-1;//(input_page_boundry < ({3'h0,occupied_input[8:0]} - 12'd1)) ? input_page_boundry[7:0] : (occupied_input[8:0] - 12'd1);
             write_ctrl_valid <= 1'b1;
             if (write_ctrl_ready)
-               input_state <= INPUT4; // Pre-emptive ACK
+               input_state <= INPUT5; // Pre-emptive ACK
             else
                input_state <= INPUT3; // Wait for ACK
          end
@@ -921,7 +921,7 @@ debug4
          INPUT3: begin
             if (write_ctrl_ready) begin
                write_ctrl_valid <= 1'b0;
-               input_state <= INPUT4; // ACK
+               input_state <= INPUT5; // ACK
             end else begin
                write_ctrl_valid <= 1'b1;
                input_state <= INPUT3; // Wait for ACK
@@ -936,7 +936,7 @@ debug4
             if (!write_ctrl_ready)
                input_state <= INPUT5; // Move on
             else
-               input_state <= INPUT4; // Wait for deassert
+               input_state <= INPUT5; // Wait for deassert
          end   
          //
          // INPUT5.
@@ -1202,7 +1202,7 @@ debug4
    localparam FLUSH_STATE_DONE = 3;
    reg [3:0] flush_state, next_flush_state;
    always @(posedge bus_clk) begin
-       if(bus_reset | clear) begin
+       if(bus_reset | clear_bclk) begin
            flush_state <= FLUSH_STATE_IDLE;
        end else begin
            flush_state <= next_flush_state;
@@ -1250,7 +1250,8 @@ debug4
    axi_dma_master axi_dma_master_i
    (
       .aclk(dram_clk), // input aclk
-      .areset(dram_reset | clear), // input aresetn
+      .areset(dram_reset), // input aresetn
+      .clear(clear),
       // Write control
       .m_axi_awid(m_axi_awid), // input [0 : 0] m_axi_awid
       .m_axi_awaddr(m_axi_awaddr), // input [31 : 0] m_axi_awaddr
@@ -1332,6 +1333,7 @@ debug4
    wr_addr <= write_addr-read_addr;
  end
  assign debug = {input_state, output_state, flush_state,i_tready_int,clear_bclk,i_tready_flush};
+ //                    [2:0],         [3:0],       [3:0]          [0]        [0]           [0]
  assign debug2 = {write_ctrl_valid,write_ctrl_ready,i_tvalid_input,read_ctrl_valid,read_ctrl_ready,o_tvalid_output,o_tready_output};
  assign debug3 = {dma_master_debug};
  assign debug4 = {read_addr, write_addr};

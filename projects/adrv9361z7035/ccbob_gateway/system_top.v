@@ -96,7 +96,9 @@ module system_top (
   input           spi_miso,
 
   output  [85:0]  gp_out,
-  input   [85:0]  gp_in,
+  input   [54:0]  gp_in,
+
+  output   [3:0]  gateway_filterboard,
 
   input           gt_ref_clk_p,
   input           gt_ref_clk_n,
@@ -118,8 +120,8 @@ module system_top (
 
   assign clkout_out = clkout_in;
   assign gp_out[85:0] = gp_out_s[85:0];
-  assign gp_in_s[95:86] = gp_out_s[95:86];
-  assign gp_in_s[85: 0] = gp_in[85:0];
+  assign gp_in_s[95:55] = gp_out_s[95:55];
+  assign gp_in_s[54: 0] = gp_in[54:0];
 
   wire peripheral_aresetn;
   assign gpio_resetb = peripheral_aresetn;
@@ -209,6 +211,7 @@ module system_top (
     .rx_data_in_p (rx_data_in_p),
     .rx_frame_in_n (rx_frame_in_n),
     .rx_frame_in_p (rx_frame_in_p),
+    .gateway_filterboard (gateway_filterboard),
     .spi0_clk_i (1'b0),
     .spi0_clk_o (spi_clk),
     .spi0_csn_0_o (spi_csn),
