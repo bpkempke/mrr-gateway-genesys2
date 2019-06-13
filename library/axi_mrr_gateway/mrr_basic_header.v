@@ -47,6 +47,7 @@ i_tlast_fft,
 i_tvalid_fft,
 i_tready_fft,
 tx_word,
+tx_en_out,
 o_tkeep,
 o_tdata,
 o_tlast,
@@ -123,6 +124,7 @@ cfo_search_debug
     input i_tvalid_fft;
     output i_tready_fft;
     input [31:0] tx_word;
+    output reg tx_en_out;
     output o_tkeep;
     output [31:0] o_tdata;
     output o_tlast;
@@ -166,6 +168,7 @@ cfo_search_debug
     
     wire [NUM_DECODE_PATHWAYS*ESAMP_WIDTH-1:0] es, sfo_es;
     wire [NUM_DECODE_PATHWAYS-1:0] fmFlag;
+    wire [NUM_DECODE_PATHWAYS-1:0] tx_en;
     
     wire [NUM_DECODE_PATHWAYS-1:0] do_op;
     wire [NUM_DECODE_PATHWAYS-1:0] header_ready;
@@ -322,11 +325,20 @@ cfo_search_debug
                 .o_decoded_tlast(o_decoded_tlast[pathway_idx]),
                 .o_decoded_tready(o_decoded_tready[pathway_idx]),
                 .currently_decoding(currently_decoding[pathway_idx]),
-                .detector_reset(detector_reset[pathway_idx])
+                .detector_reset(detector_reset[pathway_idx]),
+                .tx_en(tx_en[pathway_idx])
             );
 
         end
     endgenerate
+
+    integer tx_en_idx;
+    always @* begin
+        tx_en_out = 1'b0;
+        for(tx_en_idx=0; tx_en_idx<NUM_DECODE_PATHWAYS; tx_en_idx=tx_en_idx+1) begin
+            tx_en_out = tx_en_out | tx_en[tx_en_idx];
+        end
+    end
 
     assign readies = {i_tready_fft, i_tready, o_tready, o_decoded_tready, cfo_tready, sfo_tready};
     assign valids = {i_tvalid_fft, i_tvalid, o_tvalid, o_decoded_tvalid, cfo_tvalid, sfo_tvalid};

@@ -598,7 +598,8 @@ module axi_mrr_gateway #(
   wire           out_tlast, out_tvalid, out_tready, out_tkeep;
   assign out_tready = 1'b1;
 
-  wire txnrx_request = out_tkeep;
+  wire tx_en;
+  wire txnrx_request = tx_en;
   wire txnrx_request_sync;
   wire [31:0] out_tdata_sync;
   synchronizer #(.INITIAL_VAL(1'b0)) txnrx_request_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(txnrx_request), .out(txnrx_request_sync));
@@ -1431,11 +1432,17 @@ module axi_mrr_gateway #(
   // filterboard[3]:
   //    0: Filterboard 3V3 OFF
   //    1: Filterboard 3V3 ON
+  wire [3:0] filterboard_int;
   setting_reg #(
       .my_addr(SR_FILTERBOARD), .awidth(8), .width(4), .at_reset(4'b1101))
   sr_filterboard (
     .clk(ce_clk), .rst(ce_rst_in_sync),
-    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(filterboard), .changed());
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(filterboard_int), .changed());
+
+  assign filterboard[0] = filterboard_int[0];
+  assign filterboard[1] = (tx_en) ? 1'b1 : filterboard_int[1];
+  assign filterboard[2] = (tx_en) ? 1'b0 : filterboard_int[2];
+  assign filterboard[3] = filterboard_int[3];
 
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
@@ -1563,6 +1570,7 @@ module axi_mrr_gateway #(
         .setting_secondary_fft_len_mask(setting_secondary_fft_len_mask),
         .setting_secondary_fft_len_log2_changed(setting_secondary_fft_len_log2_changed),
         .tx_word(tx_word),
+        .tx_en_out(tx_en),
         .cur_time(cur_time),
         .i_tdata_i(sample_buff_tdata[31:16]),
         .i_tdata_q(sample_buff_tdata[15:0]),
