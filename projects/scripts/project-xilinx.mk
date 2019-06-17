@@ -50,7 +50,7 @@ clean-all: clean
 		$(MAKE) -C $(HDL_LIBRARY_PATH)$${lib} clean; \
 	done
 
-xsim:
+xsim: lib
 	$(call build, \
 		$(VIVADO) system_project_sim.tcl, \
 		$(PROJECT_NAME)_vivado_sim.log, \

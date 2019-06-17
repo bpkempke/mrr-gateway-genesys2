@@ -3,7 +3,7 @@ module mrr_loopback_bpk
     parameter PACKET_INDEX = 10,
     parameter SPP = 64,
     parameter PN_SEQ = 15'b000100110101111
-)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len);
+)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, tx_en);
 
     `include "mrr_params.vh"
 
@@ -45,6 +45,8 @@ module mrr_loopback_bpk
     output reg detector_reset;
 
     input [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len;
+
+    output reg tx_en;
 
     localparam EARLY_RX_OFFSET = 2;
 
@@ -273,6 +275,7 @@ module mrr_loopback_bpk
         wait_ctr_incr = 1'b0;
         wait_ctr_rst = 1'b0;
         latch_scf = 1'b0;
+        tx_en = 1'b0;
         peak_search_en = 1'b0;
         peak_search_update_timing = 1'b0;
         pn_correlation_update_zero_flag = 1'b0;
@@ -347,6 +350,7 @@ module mrr_loopback_bpk
 	    //Then transmit the packet, one bit at a time.  Transition back to
 	    // a waiting state after all 32 bits have been transmitted to MRR
             ST_TX: begin
+                tx_en = 1'b1;
                 detector_reset = 1'b1;
                 mrr_cycle_counter_incr = do_op;
                 mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_int_part == 4);

@@ -23,6 +23,25 @@ module axi_mrr_gateway #(
   output          out_valid_q0,
   output  [15:0]  out_data_q0,
 
+  // dac interface
+
+  output        out_dac_enable_i0,
+  output        out_dac_valid_i0,
+  input  [15:0] out_dac_data_i0,
+  output        out_dac_enable_q0,
+  output        out_dac_valid_q0,
+  input  [15:0] out_dac_data_q0,
+
+  input         dac_enable_i0,
+  input         dac_valid_i0,
+  output [15:0] dac_data_i0,
+  input         dac_enable_q0,
+  input         dac_valid_q0,
+  output [15:0] dac_data_q0,
+
+  output reg    up_enable,
+  output reg    up_txnrx,
+
   // axi interface
 
   input                 s_axi_aclk,
@@ -197,12 +216,18 @@ module axi_mrr_gateway #(
 
   reg [15:0] adc_counter;
 
-  assign out_enable_i0 = (record_en_sync | ~enable_sync) ? adc_enable_i0 : adc_out_enable_i0_int;
-  assign out_valid_i0  = (record_en_sync | ~enable_sync) ? adc_valid_i0  : adc_out_valid_i0_int;
-  assign out_data_i0   = (record_en_sync | ~enable_sync) ? adc_data_i0   : adc_out_data_i0_int;
-  assign out_enable_q0 = (record_en_sync | ~enable_sync) ? adc_enable_q0 : adc_out_enable_q0_int;
-  assign out_valid_q0  = (record_en_sync | ~enable_sync) ? adc_valid_q0  : adc_out_valid_q0_int;
-  assign out_data_q0   = (record_en_sync | ~enable_sync) ? adc_data_q0   : adc_out_data_q0_int;
+  wire bypass = (record_en_sync | ~enable_sync);
+  assign out_dac_enable_i0 = dac_enable_i0;
+  assign out_dac_valid_i0 = dac_valid_i0;
+  assign out_dac_enable_q0 = dac_enable_q0;
+  assign out_dac_valid_q0 = dac_valid_q0;
+
+  assign out_enable_i0 = (bypass) ? adc_enable_i0 : adc_out_enable_i0_int;
+  assign out_valid_i0  = (bypass) ? adc_valid_i0  : adc_out_valid_i0_int;
+  assign out_data_i0   = (bypass) ? adc_data_i0   : adc_out_data_i0_int;
+  assign out_enable_q0 = (bypass) ? adc_enable_q0 : adc_out_enable_q0_int;
+  assign out_valid_q0  = (bypass) ? adc_valid_q0  : adc_out_valid_q0_int;
+  assign out_data_q0   = (bypass) ? adc_data_q0   : adc_out_data_q0_int;
 
   assign adc_out_enable_i0_int = 1'b1;
   assign adc_out_valid_i0_int = ~dpti_fifo_rd_empty & adc_valid_i0;
@@ -438,26 +463,44 @@ module axi_mrr_gateway #(
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_reorder_factor_log2 = setting_primary_fft_len_log2-setting_primary_fft_len_decim_log2;
 
   wire ce_rst_in_sync;
-  synchronizer #(.INITIAL_VAL(1'b0)) ce_rst_sync_inst (.clk(ce_clk), .rst(1'b0), .in(ce_rst_in), .out(ce_rst_in_sync));
+  synchronizer #(.INITIAL_VAL(1'b1)) ce_rst_sync_inst (.clk(ce_clk), .rst(1'b0), .in(ce_rst_in), .out(ce_rst_in_sync));
   wire soft_reset_sync;
-  synchronizer #(.INITIAL_VAL(1'b0)) soft_reset_sync_inst (.clk(ce_clk), .rst(1'b0), .in(soft_reset), .out(soft_reset_sync));
+  synchronizer #(.INITIAL_VAL(1'b1)) soft_reset_sync_inst (.clk(ce_clk), .rst(1'b0), .in(soft_reset), .out(soft_reset_sync));
+
+  initial begin
+    ce_rst_reg = 3'b111;
+    dram_rst_reg = 3'b111;
+    dram2_rst_reg = 3'b111;
+  end
 
   reg [2:0] ce_rst_reg;
   assign ce_rst = ce_rst_reg[2];
   always @(posedge ce_clk) begin
-    ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in_sync | soft_reset_sync};
+    if(ce_rst_in_sync) begin
+      ce_rst_reg <= 3'b111;
+    end else begin
+      ce_rst_reg <= {ce_rst_reg[1:0], ce_rst_in_sync | soft_reset_sync};
+    end
   end
 
   reg [2:0] dram_rst_reg;
   wire dram_rst = dram_rst_reg[2];
   always @(posedge m_axi_aclk) begin
-    dram_rst_reg <= {dram_rst_reg[1:0], ~m_axi_aresetn};
+    if(~m_axi_aresetn) begin
+      dram_rst_reg <= 3'b111;
+    end else begin
+      dram_rst_reg <= {dram_rst_reg[1:0], ~m_axi_aresetn};
+    end
   end
 
   reg [2:0] dram2_rst_reg;
   wire dram2_rst = dram2_rst_reg[2];
   always @(posedge m_axi2_aclk) begin
-    dram2_rst_reg <= {dram2_rst_reg[1:0], ~m_axi2_aresetn};
+    if(~m_axi2_aresetn) begin
+      dram2_rst_reg <= 3'b111;
+    end else begin
+      dram2_rst_reg <= {dram2_rst_reg[1:0], ~m_axi2_aresetn};
+    end
   end
 
   /////////////////////////////////////////////////////////////
@@ -495,7 +538,7 @@ module axi_mrr_gateway #(
   wire [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len_sync;
   synchronizer #(.WIDTH(PRIMARY_FFT_MAX_LEN_LOG2+1), .INITIAL_VAL(1'b0)) setting_primary_fft_len_sync_inst (.clk(adc_clk), .rst(0), .in(setting_primary_fft_len), .out(setting_primary_fft_len_sync));
   wire ce_rst_sync;
-  synchronizer #(.INITIAL_VAL(1'b0)) ce_rst_adc_sync_inst (.clk(adc_clk), .rst(0), .in(ce_rst), .out(ce_rst_sync));
+  synchronizer #(.INITIAL_VAL(1'b1)) ce_rst_adc_sync_inst (.clk(adc_clk), .rst(0), .in(ce_rst), .out(ce_rst_sync));
   wire record_en;
   wire clear_sync;
   always @(posedge adc_clk) begin
@@ -554,6 +597,40 @@ module axi_mrr_gateway #(
   wire [31:0]    out_tdata;
   wire           out_tlast, out_tvalid, out_tready, out_tkeep;
   assign out_tready = 1'b1;
+
+  wire tx_en;
+  wire txnrx_request = tx_en;
+  wire txnrx_request_sync;
+  wire [31:0] out_tdata_sync;
+  synchronizer #(.INITIAL_VAL(1'b0)) txnrx_request_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(txnrx_request), .out(txnrx_request_sync));
+  synchronizer #(.WIDTH(32), .INITIAL_VAL(0)) out_tdata_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(out_tdata), .out(out_tdata_sync));
+
+  assign dac_data_i0 = (bypass) ? out_dac_data_i0 : out_tdata_sync[15:0];
+  assign dac_data_q0 = (bypass) ? out_dac_data_q0 : out_tdata_sync[31:16];
+
+  reg last_txnrx_request;
+  reg [3:0] enable_wait_counter;
+  always @(posedge s_axi_aclk) begin
+    if(~s_axi_aresetn) begin
+      up_enable <= 1'b1;
+      up_txnrx <= 1'b0;
+      last_txnrx_request <= 1'b0;
+      enable_wait_counter <= 0;
+    end else begin
+      last_txnrx_request <= txnrx_request_sync;
+      if(last_txnrx_request != txnrx_request_sync) begin
+        enable_wait_counter <= 0;
+        up_enable <= 1'b0;
+        up_txnrx <= txnrx_request_sync;
+      end else begin
+        if(enable_wait_counter < 4'hF) begin
+          enable_wait_counter <= enable_wait_counter + 1;
+        end else begin
+          up_enable <= 1'b1;
+        end
+      end
+    end
+  end
 
   wire [15:0] turnaround_ticks;
   wire [15:0] tick_rate;
@@ -1376,11 +1453,17 @@ module axi_mrr_gateway #(
   // filterboard[3]:
   //    0: Filterboard 3V3 OFF
   //    1: Filterboard 3V3 ON
+  wire [3:0] filterboard_int;
   setting_reg #(
       .my_addr(SR_FILTERBOARD), .awidth(8), .width(4), .at_reset(4'b1101))
   sr_filterboard (
     .clk(ce_clk), .rst(ce_rst_in_sync),
-    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(filterboard), .changed());
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(filterboard_int), .changed());
+
+  assign filterboard[0] = filterboard_int[0];
+  assign filterboard[1] = (tx_en) ? 1'b1 : filterboard_int[1];
+  assign filterboard[2] = (tx_en) ? 1'b0 : filterboard_int[2];
+  assign filterboard[3] = filterboard_int[3];
 
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
@@ -1508,6 +1591,7 @@ module axi_mrr_gateway #(
         .setting_secondary_fft_len_mask(setting_secondary_fft_len_mask),
         .setting_secondary_fft_len_log2_changed(setting_secondary_fft_len_log2_changed),
         .tx_word(tx_word),
+        .tx_en_out(tx_en),
         .cur_time(cur_time),
         .i_tdata_i(sample_buff_tdata[31:16]),
         .i_tdata_q(sample_buff_tdata[15:0]),

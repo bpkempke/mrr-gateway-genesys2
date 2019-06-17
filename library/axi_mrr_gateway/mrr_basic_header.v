@@ -47,6 +47,7 @@ i_tlast_fft,
 i_tvalid_fft,
 i_tready_fft,
 tx_word,
+tx_en_out,
 o_tkeep,
 o_tdata,
 o_tlast,
@@ -123,6 +124,7 @@ cfo_search_debug
     input i_tvalid_fft;
     output i_tready_fft;
     input [31:0] tx_word;
+    output tx_en_out;
     output o_tkeep;
     output [31:0] o_tdata;
     output o_tlast;
@@ -166,6 +168,7 @@ cfo_search_debug
     
     wire [NUM_DECODE_PATHWAYS*ESAMP_WIDTH-1:0] es, sfo_es;
     wire [NUM_DECODE_PATHWAYS-1:0] fmFlag;
+    wire [NUM_DECODE_PATHWAYS-1:0] tx_en;
     
     wire [NUM_DECODE_PATHWAYS-1:0] do_op;
     wire [NUM_DECODE_PATHWAYS-1:0] header_ready;
@@ -322,7 +325,8 @@ cfo_search_debug
                 .o_decoded_tlast(o_decoded_tlast),
                 .o_decoded_tready(o_decoded_tready),
                 .currently_decoding(currently_decoding),
-                .detector_reset(detector_reset[pathway_idx])
+                .detector_reset(detector_reset[pathway_idx]),
+                .tx_en(tx_en_out)
             );
 
         end
