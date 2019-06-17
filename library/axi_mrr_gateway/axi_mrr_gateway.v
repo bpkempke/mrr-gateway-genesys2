@@ -276,7 +276,7 @@ module axi_mrr_gateway #(
 
   //out_decoded_tlast,7'd0,out_decoded_tdata}),
   //out_decoded_tvalid
-  localparam NUM_MUX_CHANNELS = 2+NUM_DECODE_PATHWAYS;
+  localparam NUM_MUX_CHANNELS = 1+NUM_DECODE_PATHWAYS;
   localparam NUM_MUX_CHANNELS_LOG2 = 3; //TODO: How to calculate this?!
   wire [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_tvalids;
   reg [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_treadies;
@@ -612,7 +612,7 @@ module axi_mrr_gateway #(
   reg [3:0] enable_wait_counter;
   always @(posedge s_axi_aclk) begin
     if(~s_axi_aresetn) begin
-      up_enable <= 1'b0;
+      up_enable <= 1'b1;
       up_txnrx <= 1'b0;
       last_txnrx_request <= 1'b0;
       enable_wait_counter <= 0;
@@ -1643,7 +1643,7 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
   generate
     for(d_idx = 0; d_idx < NUM_DECODE_PATHWAYS; d_idx=d_idx+1) begin
       assign dpti_fifo_pre_tdatas[1+d_idx][39] = out_decoded_buff_tlast[d_idx];
-      assign dpti_fifo_pre_tdatas[1+d_idx][38-:7] = d_idx;
+      assign dpti_fifo_pre_tdatas[1+d_idx][38-:7] = d_idx+1;
       assign dpti_fifo_pre_tdatas[1+d_idx][31:0] = out_decoded_buff_tdata[d_idx];
       assign out_decoded_buff_tready[d_idx] = dpti_fifo_pre_treadies[1+d_idx];
       assign dpti_fifo_pre_tvalids[1+d_idx] = out_decoded_buff_tvalid[d_idx];
