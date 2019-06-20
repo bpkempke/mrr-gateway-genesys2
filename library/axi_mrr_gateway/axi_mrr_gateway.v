@@ -1644,7 +1644,7 @@ assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_
     for(d_idx = 0; d_idx < NUM_DECODE_PATHWAYS; d_idx=d_idx+1) begin
       assign dpti_fifo_pre_tdatas[1+d_idx][39] = out_decoded_buff_tlast[d_idx];
       assign dpti_fifo_pre_tdatas[1+d_idx][38-:7] = d_idx+1;
-      assign dpti_fifo_pre_tdatas[1+d_idx][31:0] = out_decoded_buff_tdata[d_idx];
+      assign dpti_fifo_pre_tdatas[1+d_idx][31:0] = out_decoded_buff_tdata[32*(d_idx+1)-1-:32];
       assign out_decoded_buff_tready[d_idx] = dpti_fifo_pre_treadies[1+d_idx];
       assign dpti_fifo_pre_tvalids[1+d_idx] = out_decoded_buff_tvalid[d_idx];
       axi_fifo #(
