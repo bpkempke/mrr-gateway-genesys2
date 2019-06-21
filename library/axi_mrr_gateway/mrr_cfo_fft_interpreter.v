@@ -495,6 +495,7 @@ wire [NUM_DECODE_PATHWAYS-1:0] o_tkeep_buf;
 
 //Multiple mixer/matched filter combinations for all downstream 
 // processing pathways
+wire [NUM_DECODE_PATHWAYS-1:0] cordic_flag;
 genvar pathway_idx;
 generate 
     for (pathway_idx = 0; pathway_idx < NUM_DECODE_PATHWAYS; pathway_idx = pathway_idx + 1) begin
@@ -511,12 +512,11 @@ generate
         wire [CWIDTH-1:0] to_cordic_i, to_cordic_q;
         wire [CWIDTH-1:0] i_cordic, q_cordic;
 
-        assign o_tkeep[pathway_idx] = (o_replay_flag[pathway_idx]) ? i_tkeep[pathway_idx] : o_tkeep_buf;
+        assign o_tkeep[pathway_idx] = (o_replay_flag[pathway_idx]) ? i_tkeep[pathway_idx] : o_tkeep_buf[pathway_idx];
         
         sign_extend #(.bits_in(WIDTH), .bits_out(CWIDTH)) sign_extend_cordic_i_m (.in(to_cordic_i_pre), .out(to_cordic_i));
         sign_extend #(.bits_in(WIDTH), .bits_out(CWIDTH)) sign_extend_cordic_q_m (.in(to_cordic_q_pre), .out(to_cordic_q));
 
-        wire cordic_flag;
         m_cordic_z24 #(.bitwidth(CWIDTH)) inst_cordic(
             .clock(clk),
             .reset(rst),
@@ -528,7 +528,7 @@ generate
             .xo(i_cordic),
             .yo(q_cordic),
             .zo(),
-            .flag_out(cordic_flag)
+            .flag_out(cordic_flag[pathway_idx])
         );
         
         mrr_cfo_mf_es #(
@@ -536,7 +536,7 @@ generate
         ) inst_mf (
             .clk(clk),
             .rst(rst),
-            .enable(cordic_flag),
+            .enable(cordic_flag[pathway_idx]),
             .setting_num_accum(mf_num_accum),
             .setting_accum_len_log2(mf_accum_len),
             .accum_settings_changed(mf_settings_changed),
@@ -553,7 +553,7 @@ generate
             .n3({1'b0,pathway_assignment_n2[pathway_idx]}),
             .decim(1 << (setting_primary_fft_len_log2 - setting_primary_fft_len_decim_log2)),
             .i_tlast(i_tlast),
-            .i_tvalid(cordic_flag),//(o_replay_flag[pathway_idx]) ? cordic_flag : i_tvalid),
+            .i_tvalid(cordic_flag[pathway_idx]),//(o_replay_flag[pathway_idx]) ? cordic_flag : i_tvalid),
             .i_tready(),
             .o_tlast(),
             .o_tvalid(i_tkeep[pathway_idx]),
@@ -1224,8 +1224,8 @@ generate
         .clk(clk),
         .reset(rst),
         .clear(1'b0),
-        .i_tdata({i_tkeep,{{NUM_DECODE_PATHWAYS}{i_tlast}}}),
-        .i_tvalid(do_op_iq_in),
+        .i_tdata({i_tkeep,i_tlast}),
+        .i_tvalid(cordic_flag[pathway_idx]),
         .i_tready(),
         .o_tdata({o_tkeep_buf[pathway_idx],o_tlast[pathway_idx]}),
         .o_tvalid(o_tvalid[pathway_idx]),
