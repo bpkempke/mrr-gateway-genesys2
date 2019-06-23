@@ -150,10 +150,10 @@ module system_top (
   assign gpio_i[63:52] = gpio_o[63:52];
   assign gpio_i[50:47] = gpio_o[50:47];
 
-  ad_iobuf #(.DATA_WIDTH(15)) i_iobuf (
-    .dio_t ({gpio_t[45:32]}),
-    .dio_i ({gpio_o[45:32]}),
-    .dio_o ({gpio_i[45:32]}),
+  ad_iobuf #(.DATA_WIDTH(16)) i_iobuf (
+    .dio_t ({gpio_t[51], gpio_t[45:32]}),
+    .dio_i ({gpio_o[51], gpio_o[45:32]}),
+    .dio_o ({gpio_i[51], gpio_i[45:32]}),
     .dio_p ({ gpio_clksel,        // 51:51
               gpio_sync,          // 45:45
               gpio_en_agc,        // 44:44
@@ -240,7 +240,9 @@ module system_top (
     .tx_frame_out_n (tx_frame_out_n),
     .tx_frame_out_p (tx_frame_out_p),
     .txnrx (txnrx),
-    .peripheral_aresetn(peripheral_aresetn));
+    .peripheral_aresetn(peripheral_aresetn),
+    .up_enable (gpio_o[47]),
+    .up_txnrx (gpio_o[48]));
 
 endmodule
 

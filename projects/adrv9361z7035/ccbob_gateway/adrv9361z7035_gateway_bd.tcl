@@ -198,6 +198,8 @@ ad_cpu_interconnect 0x41600000 axi_iic_main
 
 create_bd_port -dir O enable
 create_bd_port -dir O txnrx
+create_bd_port -dir I up_enable
+create_bd_port -dir I up_txnrx
 
 create_bd_port -dir O tdd_sync_o
 create_bd_port -dir I tdd_sync_i
@@ -213,6 +215,8 @@ ad_connect sys_200m_clk axi_ad9361/delay_clk
 ad_connect axi_ad9361/l_clk axi_ad9361/clk
 ad_connect enable axi_ad9361/enable
 ad_connect txnrx axi_ad9361/txnrx
+ad_connect up_enable axi_ad9361/up_enable
+ad_connect up_txnrx axi_ad9361/up_txnrx
 
 # MRR gateway
 
@@ -228,8 +232,6 @@ ad_connect axi_ad9361/adc_data_q0 mrr_gateway/adc_data_q0
 ad_connect axi_ad9361/l_clk mrr_gateway/adc_clk
 ad_connect gateway_debug mrr_gateway/debug
 ad_connect gateway_filterboard mrr_gateway/filterboard
-ad_connect mrr_gateway/up_enable axi_ad9361/up_enable
-ad_connect mrr_gateway/up_txnrx axi_ad9361/up_txnrx
 
 ad_connect sys_rstgen/peripheral_aresetn peripheral_aresetn
 
