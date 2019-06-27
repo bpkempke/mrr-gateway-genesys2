@@ -164,7 +164,7 @@ input [PRIMARY_FFT_MAX_LEN_LOG2-1:0] setting_primary_fft_len_mask;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2:0] setting_primary_fft_len_decim;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2_LOG2-1:0] setting_primary_fft_len_decim_log2;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2-1:0] setting_primary_fft_len_decim_mask;
-output [63:0] debug;
+output [127:0] debug;
 
 //Historic primary FFT samples are stored in RAM.
 // Once a number of samples corresponding to the length of the
@@ -212,7 +212,6 @@ localparam CORR_SHIFT_PHASE_READ2 = 2;
 localparam CORR_SHIFT_PHASE_WRITE = 4;
 
 //Keep track of correlation values so that we can sort it after it's generated
-reg [CORR_WIDTH-1:0] cur_corr_max;
 wire [CORR_WIDTH-1:0] max_corr_rddata;
 reg blank_highest_corr;
 reg search_highest_corr;
@@ -222,13 +221,13 @@ reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] highest_corr_idx;
 reg highest_corr_triggered_threshold;
 wire [NUM_CORRELATORS_LOG2-1:0] max_corr_sfo_idx;
 reg [NUM_CORRELATORS_LOG2-1:0] highest_corr_sfo_idx;
-reg [NUM_CORRELATORS_LOG2-1:0] cur_corr_sfo_max;
+reg [NUM_CORRELATORS_LOG2-1:0] corr_sfo_max, corr_sfo_max_temp;
 ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) max_corr_ram (
     .clka(clk),
     .ena(1'b1),
     .wea(blank_highest_corr | o_corr_tvalid),
     .addra((blank_highest_corr) ? highest_corr_idx : cfo_index),
-    .dia((blank_highest_corr) ? 0 : (cur_corr > cur_corr_max) ? {correlator_shift_counter,cur_corr} : {cur_corr_sfo_max,cur_corr_max}),
+    .dia((blank_highest_corr) ? 0 : {corr_sfo_max,corr_max}),
     .doa(),
 
     .clkb(clk),
@@ -241,22 +240,12 @@ ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2), .AWIDTH(PRIMARY_FFT_MAX_LE
 
 always @(posedge clk) begin
     if(rst) begin
-        cur_corr_max <= 0;
-        cur_corr_sfo_max <= 0;
         highest_corr <= 0;
         highest_corr_idx <= 0;
         highest_corr_sfo_idx <= 0;
         highest_corr_triggered_threshold <= 1'b0;
         cfo_index_last <= 0;
     end else begin
-        if(o_corr_tlast) begin
-            cur_corr_max <= 0;
-            cur_corr_sfo_max <= 0;
-        end else if(cur_corr > cur_corr_max) begin
-            cur_corr_sfo_max <= correlator_shift_counter;
-            cur_corr_max <= cur_corr;
-        end
-
         cfo_index_last <= cfo_index;
         if(blank_highest_corr) begin
             highest_corr <= 0;
@@ -287,6 +276,8 @@ wire [31:0] corr_max_temp = (cur_corr > corr_temp) ? cur_corr : corr_temp;
 always @(posedge clk) begin
     if(rst) begin
         corr_max <= 0;
+        corr_sfo_max <= 0;
+        corr_sfo_max_temp <= 0;
         corr_temp <= 0;
         corr_valid <= 1'b0;
     end else begin
@@ -295,6 +286,8 @@ always @(posedge clk) begin
             corr_temp <= corr_max_temp;
             if(corr_last_temp) begin
                 corr_max <= corr_temp;
+                corr_sfo_max <= corr_sfo_max_temp;
+                corr_sfo_max_temp <= 0;
                 corr_temp <= 0;
                 corr_valid <= 1'b1;
             end
@@ -1238,7 +1231,8 @@ endgenerate
 //Only allow for more incoming samples if there is at least 16 spaces free in FIFO (latency of CORDIC)
 assign i_tready = (cordic_fifo_space[0] > 16);
 
-assign debug = {cordic_fifo_space[0], global_search_idx[0], state};
+//assign debug = {cordic_fifo_space[0], global_search_idx[0], state};
+assign debug = {22'd0,out_assignment_cfo_idx[19:10],22'd0,out_assignment_cfo_idx[9:0],out_assignment_corr[63:0]};
 
 endmodule
 

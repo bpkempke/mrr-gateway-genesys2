@@ -125,11 +125,11 @@ cfo_search_debug
     output i_tready_fft;
     input [31:0] tx_word;
     output reg tx_en_out;
-    output o_tkeep;
-    output [31:0] o_tdata;
-    output o_tlast;
-    output o_tvalid;
-    input o_tready;
+    output [NUM_DECODE_PATHWAYS-1:0] o_tkeep;
+    output [32*NUM_DECODE_PATHWAYS-1:0] o_tdata;
+    output [NUM_DECODE_PATHWAYS-1:0] o_tlast;
+    output [NUM_DECODE_PATHWAYS-1:0] o_tvalid;
+    input [NUM_DECODE_PATHWAYS-1:0] o_tready;
     output [32*NUM_DECODE_PATHWAYS-1:0] o_decoded_tdata;
     output [NUM_DECODE_PATHWAYS-1:0] o_decoded_tvalid;
     output [NUM_DECODE_PATHWAYS-1:0] o_decoded_tlast;
@@ -162,7 +162,7 @@ cfo_search_debug
     //Debug stuff
     output [5:0] readies;
     output [5:0] valids;
-    output [63:0] cfo_search_debug;
+    output [127:0] cfo_search_debug;
 
     /***************Internal Signal Assignment*************/
     
@@ -315,11 +315,11 @@ cfo_search_debug
                 .i_tkeep(sfo_tkeep[pathway_idx]),
                 .i_tready(sfo_tready[pathway_idx]),
                 .i_replay_flag(cfo_replay_flag[pathway_idx]),
-                .o_tdata(o_tdata),
-                .o_tlast(o_tlast),
-                .o_tvalid(o_tvalid),
-                .o_tready(o_tready),
-                .o_tkeep(o_tkeep),
+                .o_tdata(o_tdata[32*(pathway_idx+1)-1-:32]),
+                .o_tlast(o_tlast[pathway_idx]),
+                .o_tvalid(o_tvalid[pathway_idx]),
+                .o_tready(o_tready[pathway_idx]),
+                .o_tkeep(o_tkeep[pathway_idx]),
                 .o_decoded_tdata(o_decoded_tdata[32*(pathway_idx+1)-1-:32]),
                 .o_decoded_tvalid(o_decoded_tvalid[pathway_idx]),
                 .o_decoded_tlast(o_decoded_tlast[pathway_idx]),
