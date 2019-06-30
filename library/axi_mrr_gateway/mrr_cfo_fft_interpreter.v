@@ -164,7 +164,7 @@ input [PRIMARY_FFT_MAX_LEN_LOG2-1:0] setting_primary_fft_len_mask;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2:0] setting_primary_fft_len_decim;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2_LOG2-1:0] setting_primary_fft_len_decim_log2;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2-1:0] setting_primary_fft_len_decim_mask;
-output [127:0] debug;
+output [159:0] debug;
 
 //Historic primary FFT samples are stored in RAM.
 // Once a number of samples corresponding to the length of the
@@ -218,16 +218,19 @@ reg search_highest_corr;
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] cfo_index_last;
 reg [CORR_WIDTH-1:0] highest_corr;
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] highest_corr_idx;
+reg [CORR_METADATA_WIDTH-1:0] metadata_max;
 reg highest_corr_triggered_threshold;
 wire [NUM_CORRELATORS_LOG2-1:0] max_corr_sfo_idx;
+wire [CORR_METADATA_WIDTH-1:0] max_metadata_rb;
 reg [NUM_CORRELATORS_LOG2-1:0] highest_corr_sfo_idx;
+reg [CORR_METADATA_WIDTH-1:0] highest_corr_metadata;
 reg [NUM_CORRELATORS_LOG2-1:0] corr_sfo_max, corr_sfo_max_temp;
-ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) max_corr_ram (
+ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2+CORR_METADATA_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) max_corr_ram (
     .clka(clk),
     .ena(1'b1),
     .wea(blank_highest_corr | o_corr_tvalid),
     .addra((blank_highest_corr) ? highest_corr_idx : cfo_index),
-    .dia((blank_highest_corr) ? 0 : {corr_sfo_max,corr_max}),
+    .dia((blank_highest_corr) ? 0 : {metadata_max,corr_sfo_max,corr_max}),
     .doa(),
 
     .clkb(clk),
@@ -235,7 +238,7 @@ ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2), .AWIDTH(PRIMARY_FFT_MAX_LE
     .web(1'b0),
     .addrb(cfo_index),
     .dib(),
-    .dob({max_corr_sfo_idx,max_corr_rddata})
+    .dob({max_metadata_rb,max_corr_sfo_idx,max_corr_rddata})
 );
 
 always @(posedge clk) begin
@@ -251,10 +254,11 @@ always @(posedge clk) begin
             highest_corr <= 0;
             highest_corr_triggered_threshold <= 1'b0;
         end else if(search_highest_corr) begin
-            if(max_corr_rddata > highest_corr) begin
+            if(max_corr_rddata > highest_corr && primary_fft_mask_shift[0]) begin
                 highest_corr <= max_corr_rddata;
                 highest_corr_idx <= cfo_index_last;
                 highest_corr_sfo_idx <= max_corr_sfo_idx;
+                highest_corr_metadata <= max_metadata_rb;
                 highest_corr_triggered_threshold <= (max_corr_rddata > threshold_in);
             end
         end
@@ -263,6 +267,7 @@ end
 
 //Output correlator values in real-time
 reg [31:0] corr_max, corr_temp;
+reg [CORR_METADATA_WIDTH-1:0] metadata_temp;
 reg corr_valid;
 wire first_cfo_flag = (cfo_index == 0);
 assign o_corr_tdata = {first_cfo_flag, corr_max[30:0]};
@@ -273,6 +278,7 @@ assign o_corr_tlast = 1'b1;//(cfo_index == setting_primary_fft_len-1);
 wire corr_valid_temp = (correlator_shift_out & (correlator_shift_phase == CORR_SHIFT_PHASE_WRITE));
 wire corr_last_temp = (correlator_shift_counter == NUM_CORRELATORS-1);
 wire [31:0] corr_max_temp = (cur_corr > corr_temp) ? cur_corr : corr_temp;
+wire [CORR_METADATA_WIDTH-1:0] metadata_max_temp = (cur_corr > corr_temp) ? cur_metadata : metadata_temp;
 always @(posedge clk) begin
     if(rst) begin
         corr_max <= 0;
@@ -280,15 +286,19 @@ always @(posedge clk) begin
         corr_sfo_max_temp <= 0;
         corr_temp <= 0;
         corr_valid <= 1'b0;
+        metadata_temp <= 0;
     end else begin
         corr_valid <= 1'b0;
         if(corr_valid_temp) begin
             corr_temp <= corr_max_temp;
+            metadata_temp <= metadata_max_temp;
             if(corr_last_temp) begin
+                metadata_max <= metadata_temp;
                 corr_max <= corr_temp;
                 corr_sfo_max <= corr_sfo_max_temp;
                 corr_sfo_max_temp <= 0;
                 corr_temp <= 0;
+                metadata_temp <= 0;
                 corr_valid <= 1'b1;
             end
         end
@@ -302,9 +312,6 @@ end
 wire [PRIMARY_FFT_MAX_LEN_DECIM_LOG2+SECONDARY_FFT_MAX_LEN_LOG2-1:0] read_address = 
     ((fft_hist_read_idx & setting_secondary_fft_len_mask) << setting_primary_fft_len_decim_log2) | 
     (fft_hist_read_idx >> setting_secondary_fft_len_log2);
-
-wire [PRIMARY_FFT_WIDTH-1:0] write_data;
-assign write_data = (detector_reset) ? 0 : FFTDataIn;
 
 ram_2port #(.DWIDTH(FFT_SHIFT_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_DECIM_LOG2)) ram_2port_inst2 (
     .clka(clk),
@@ -327,7 +334,7 @@ ram_2port #(.DWIDTH(PRIMARY_FFT_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_DECIM_LOG2+S
     .ena(1'b1),
     .wea(do_op_fft_in), 
     .addra(fft_hist_write_idx),
-    .dia(write_data), //TODO: Needs to be deafened to avoid infinite loopback
+    .dia(FFTDataIn), //TODO: Needs to be deafened to avoid infinite loopback
     .doa(),
 
     .clkb(clk),
@@ -470,9 +477,7 @@ assign fft_shift_o_tready = mag_phase_o_tready | reset_state;
 //No buffering here, so we have a 1:1 input:output ratio
 assign i_tready_fft = load_from_dram;
 
-reg [CORR_WIDTH-1:0] max_value_temp;
 reg [CORR_WIDTH-1:0] max_value_global;
-reg [CORR_METADATA_WIDTH-1:0] max_metadata;
 
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] z_counter [NUM_DECODE_PATHWAYS-1:0];
 wire [NUM_DECODE_PATHWAYS-1:0] i_tkeep;
@@ -615,6 +620,9 @@ reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] incr_counter;
 reg [NUM_DECODE_PATHWAYS_LOG2-1:0] occupied_idx;
 reg [NUM_DECODE_PATHWAYS-1:0] store_pathway_assignment;
 reg [NUM_DECODE_PATHWAYS-1:0] recently_assigned;
+reg [NUM_DECODE_PATHWAYS-1:0] global_search_idx_reset;
+reg [NUM_DECODE_PATHWAYS-1:0] global_search_idx_incr;
+reg [GLOBAL_SEARCH_LEN_LOG2-1:0] global_search_idx [NUM_DECODE_PATHWAYS-1:0];
 wire assignment_read;
 reg [3:0] assignment_state, next_assignment_state;
 reg assignment_write_ena, assignment_write_data;
@@ -675,7 +683,18 @@ always @(posedge clk) begin
     end
 end
 
-wire all_pathways_occupied = ((recently_assigned | currently_decoding) == {{NUM_DECODE_PATHWAYS}{1'b1}});
+wire all_pathways_occupied = ((currently_decoding & global_search_done) == {{NUM_DECODE_PATHWAYS}{1'b1}});
+
+//Logic to generate signal indicating whether there are additional local
+// searches left for each decode pathway
+reg [NUM_DECODE_PATHWAYS-1:0] global_search_done;
+integer global_path_idx;
+always @* begin
+    for(global_path_idx=0; global_path_idx<NUM_DECODE_PATHWAYS; global_path_idx=global_path_idx+1) begin
+        global_search_done[global_path_idx] = (global_search_idx[global_path_idx] >= GLOBAL_SEARCH_LEN);
+    end
+end
+
 
 always @* begin
     next_assignment_state = assignment_state;
@@ -689,6 +708,8 @@ always @* begin
     assignment_write_data = 1'b0;
     ack_pathway_assignment = 1'b0;
     store_pathway_assignment = 0;
+    global_search_idx_reset = 0;
+    global_search_idx_incr = 1'b0;
 
     case(assignment_state)
 
@@ -728,8 +749,14 @@ always @* begin
         end
 
         ASSIGNMENT_STATE_FIND_PATHWAY: begin
-            incr_occupied_idx = currently_decoding[occupied_idx] | recently_assigned[occupied_idx];
-            if(~(currently_decoding[occupied_idx] | recently_assigned[occupied_idx])) begin
+            //Increment pathway index if:
+            // - currently decoding AND
+            //   - NOT within pull-in range OR
+            //   - correlation is less than current assignment OR
+            //   - no more global searches left
+            incr_occupied_idx = (currently_decoding[occupied_idx] || recently_assigned[occupied_idx]) && 
+                                ((~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < ASSIGNMENT_SKIRT_WIDTH) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < ASSIGNMENT_SKIRT_WIDTH))) || (highest_corr < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]);
+            if(~incr_occupied_idx) begin
                 next_assignment_state = ASSIGNMENT_STATE_ASSIGN_PATHWAY;
             end else if(occupied_idx == NUM_DECODE_PATHWAYS-1) begin
                 next_assignment_state = ASSIGNMENT_STATE_DONE;
@@ -737,11 +764,13 @@ always @* begin
         end
 
         ASSIGNMENT_STATE_ASSIGN_PATHWAY: begin
+            global_search_idx_reset[occupied_idx] = ~(currently_decoding[occupied_idx] || recently_assigned[occupied_idx]);
             store_pathway_assignment[occupied_idx] = 1'b1;
             next_assignment_state = ASSIGNMENT_STATE_REMOVE_SKIRT;
         end
 
         ASSIGNMENT_STATE_REMOVE_SKIRT: begin
+            global_search_idx_incr[occupied_idx] = (currently_decoding[occupied_idx] || recently_assigned[occupied_idx]) && (~global_search_done[pathway_idx]);
             remove_skirt = 1'b1;
             next_assignment_state = ASSIGNMENT_STATE_SET_ASSIGNMENT_FLAG;
         end
@@ -802,13 +831,8 @@ reg cfo_index_reset;
 reg cfo_index_incr;
 reg historic_sample_counter_reset;
 reg historic_sample_counter_incr;
-reg [NUM_DECODE_PATHWAYS-1:0] global_search_idx_reset;
-reg [NUM_DECODE_PATHWAYS-1:0] global_search_idx_incr;
 reg [NUM_DECODE_PATHWAYS-1:0] new_assignment_array;
 reg reset_dram_ctr;
-reg [GLOBAL_SEARCH_LEN_LOG2-1:0] global_search_idx [NUM_DECODE_PATHWAYS-1:0];
-reg [NUM_CORRELATORS_LOG2-1:0] max_sfo_idx;
-reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] max_cfo_idx;
 
 parameter STATE_IDLE  = 0;
 parameter STATE_LOAD_FROM_DRAM = 1;
@@ -857,8 +881,6 @@ always @(posedge clk) begin
         fft_hist_read_idx <= 0;
         fft_i_done <= 0;
         cfo_index_reversed <= 0;
-        max_cfo_idx <= 0;
-        max_sfo_idx <= 0;
         historic_sample_counter <= 0;
         correlator_shift_counter <= 0;
         correlators_reset_last <= 1'b0;
@@ -867,7 +889,6 @@ always @(posedge clk) begin
         secondary_fft_write_idx <= 0;
         correlator_shift_phase <= CORR_SHIFT_PHASE_INCR;
         dram_load_ctr <= 0;
-        max_value_temp <= 0;
         new_assignment_array <= 0;
         ack_pathway_assignment_reg <= 1'b0;
         state <= STATE_IDLE;
@@ -928,12 +949,6 @@ always @(posedge clk) begin
                 correlator_shift_phase <= CORR_SHIFT_PHASE_WRITE;
             end else if(correlator_shift_phase == CORR_SHIFT_PHASE_WRITE) begin
                 $display("corr = %d", cur_corr);
-                if((cur_corr > max_value_temp) && primary_fft_mask_shift[0]) begin
-                    max_value_temp <= cur_corr;
-                    max_metadata <= cur_metadata;
-                    max_sfo_idx[0] <= correlator_shift_counter;
-                    max_cfo_idx[0] <= cfo_index;
-                end
                 for(idx=0; idx<NUM_CORRELATORS-1; idx=idx+1) begin
                     correlation_out_shift[idx] <= correlation_out_shift[idx+1];
                     metadata_out_shift[idx] <= metadata_out_shift[idx+1];
@@ -979,7 +994,6 @@ always @(posedge clk) begin
             cfo_index_reversed <= 0;
             primary_fft_mask_shift <= primary_fft_mask;
         end else if(cfo_index_incr) begin
-            max_value_temp <= 0;
             cfo_index_reversed <= cfo_index_reversed + 1;
             primary_fft_mask_shift <= {primary_fft_mask_shift[0], primary_fft_mask_shift[PRIMARY_FFT_MAX_LEN-1:1]};
         end
@@ -990,7 +1004,7 @@ always @(posedge clk) begin
                 pathway_assignment_n2[idx] <= resample_n2_params_rom[highest_corr_sfo_idx];
                 pathway_assignment_cfo_idx[idx] <= highest_corr_idx;
                 pathway_assignment_corr[idx] <= highest_corr;
-                pathway_assignment_metadata[idx] <= max_metadata;
+                pathway_assignment_metadata[idx] <= highest_corr_metadata;
             end
  
             if(do_op_iq_in | (o_replay_flag[idx] & i_replay_tvalid)) begin
@@ -1018,8 +1032,6 @@ always @* begin
     correlation_search_reset = 1'b0;
     correlators_reset = 1'b0;
     mag_phase_o_tready = 1'b0;
-    global_search_idx_reset = 1'b0;
-    global_search_idx_incr = 1'b0;
     o_pathway_reset = 0;
     load_from_dram = 1'b0;
     iq_sync_req = 1'b0;
@@ -1042,9 +1054,6 @@ always @* begin
             reset_dram_ctr = 1'b1;
             correlation_search_reset = 1'b1;
             correlators_reset = 1'b1;
-            for(i=0; i<NUM_DECODE_PATHWAYS; i=i+1) begin
-                global_search_idx_reset[i] = (~currently_decoding[i]) & trigger_search;
-            end
             if(trigger_search)
                 next_state = STATE_SYNC_FFT_SAMPLES;
         end
@@ -1096,9 +1105,6 @@ always @* begin
             reset_dram_ctr = 1'b1;
             if(cfo_index_reversed == setting_primary_fft_len-1) begin
                 cfo_index_reset = 1'b1;
-                for(i=0; i<NUM_DECODE_PATHWAYS; i=i+1) begin
-                    global_search_idx_incr[i] = global_search_idx[i] < GLOBAL_SEARCH_LEN;
-                end
                 next_state = STATE_EVALUATE_THRESHOLD;
             end else begin
                 if(cfo_index_reversed[PRIMARY_FFT_MAX_LEN_DECIM_LOG2-1:0] == setting_primary_fft_len_decim_mask) begin
@@ -1137,9 +1143,7 @@ always @* begin
         // matched filtering) for them to subsequently search time offset
         STATE_SEARCH_DONE: begin
             historic_sample_counter_reset = 1'b1;
-            for(i=0; i<NUM_DECODE_PATHWAYS; i=i+1) begin
-                o_pathway_reset[i] = recently_assigned[i] & (global_search_idx[i] < GLOBAL_SEARCH_LEN);
-            end
+            o_pathway_reset = (~global_search_done) & recently_assigned; //TODO: Is this obsolete?!
             next_state = STATE_REPLAY_CORR_SAMPLES;
         end
 
@@ -1232,7 +1236,7 @@ endgenerate
 assign i_tready = (cordic_fifo_space[0] > 16);
 
 //assign debug = {cordic_fifo_space[0], global_search_idx[0], state};
-assign debug = {22'd0,out_assignment_cfo_idx[19:10],22'd0,out_assignment_cfo_idx[9:0],out_assignment_corr[63:0]};
+assign debug = {14'd0,currently_decoding,recently_assigned,global_search_idx[1],2'd0,global_search_idx[0],state,22'd0,out_assignment_cfo_idx[19:10],22'd0,out_assignment_cfo_idx[9:0],out_assignment_corr[63:0]};
 
 endmodule
 

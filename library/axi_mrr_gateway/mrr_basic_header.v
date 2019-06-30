@@ -162,7 +162,7 @@ cfo_search_debug
     //Debug stuff
     output [5:0] readies;
     output [5:0] valids;
-    output [127:0] cfo_search_debug;
+    output [159:0] cfo_search_debug;
 
     /***************Internal Signal Assignment*************/
     

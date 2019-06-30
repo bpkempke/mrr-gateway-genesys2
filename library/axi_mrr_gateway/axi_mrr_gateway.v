@@ -1483,7 +1483,7 @@ module axi_mrr_gateway #(
   end
 
   // Readback registers
-  wire [127:0] cfo_search_debug;
+  wire [159:0] cfo_search_debug;
   localparam RB_READIES = 0;
   localparam RB_VALIDS = 1;
   localparam RB_DRAM = 2;
@@ -1520,12 +1520,13 @@ module axi_mrr_gateway #(
       15 : rb_data <= dram_fft_buffer_debug3[31:0];
       16 : rb_data <= dram_fft_buffer_debug4[63:32];
       17 : rb_data <= dram_fft_buffer_debug4[31:0];
-      18 : rb_data <= cfo_search_debug[127-:32];
-      19 : rb_data <= cfo_search_debug[95-:32];
-      20 : rb_data <= cfo_search_debug[63-:32];
-      21 : rb_data <= cfo_search_debug[31-:32];
-      22 : rb_data <= {32'h0,4'h0,GIT_VERSION};
-      23 : rb_data <= primary_fft_mask_temp;
+      18 : rb_data <= cfo_search_debug[159-:32];
+      19 : rb_data <= cfo_search_debug[127-:32];
+      20 : rb_data <= cfo_search_debug[95-:32];
+      21 : rb_data <= cfo_search_debug[63-:32];
+      22 : rb_data <= cfo_search_debug[31-:32];
+      23 : rb_data <= {32'h0,4'h0,GIT_VERSION};
+      24 : rb_data <= primary_fft_mask_temp;
       default        : rb_data <= 64'h0BADC0DE0BADC0DE;
     endcase
   end
