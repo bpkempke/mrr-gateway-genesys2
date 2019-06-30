@@ -626,6 +626,7 @@ reg [GLOBAL_SEARCH_LEN_LOG2-1:0] global_search_idx [NUM_DECODE_PATHWAYS-1:0];
 wire assignment_read;
 reg [3:0] assignment_state, next_assignment_state;
 reg assignment_write_ena, assignment_write_data;
+reg clear_recently_assigned;
 reg incr_assignment_write_idx;
 reg incr_occupied_idx;
 reg reset_occupied_idx;
@@ -679,7 +680,12 @@ always @(posedge clk) begin
                 occupied_idx <= 0;
         end
 
-        recently_assigned <= (recently_assigned | (store_pathway_assignment & (1 << occupied_idx))) & ~currently_decoding;
+        //TODO: Shouldn't include "currently_decoding"
+        if(clear_recently_assigned) begin
+            recently_assigned <= 0;
+        end else begin
+            recently_assigned <= (recently_assigned | (store_pathway_assignment & (1 << occupied_idx)));
+        end
     end
 end
 
@@ -709,7 +715,6 @@ always @* begin
     ack_pathway_assignment = 1'b0;
     store_pathway_assignment = 0;
     global_search_idx_reset = 0;
-    global_search_idx_incr = 1'b0;
 
     case(assignment_state)
 
@@ -770,7 +775,6 @@ always @* begin
         end
 
         ASSIGNMENT_STATE_REMOVE_SKIRT: begin
-            global_search_idx_incr[occupied_idx] = (currently_decoding[occupied_idx] || recently_assigned[occupied_idx]) && (~global_search_done[pathway_idx]);
             remove_skirt = 1'b1;
             next_assignment_state = ASSIGNMENT_STATE_SET_ASSIGNMENT_FLAG;
         end
@@ -792,13 +796,8 @@ always @* begin
         end
 
         ASSIGNMENT_STATE_HOUSEKEEPING: begin
-            incr_occupied_idx = currently_decoding[occupied_idx];
             store_decoding_idx = 1'b1;
-            if(~currently_decoding[occupied_idx]) begin
-                next_assignment_state = ASSIGNMENT_STATE_CLEAR_PATHWAY1;
-            end else if(occupied_idx == NUM_DECODE_PATHWAYS-1) begin
-                next_assignment_state = ASSIGNMENT_STATE_IDLE;
-            end
+            next_assignment_state = ASSIGNMENT_STATE_CLEAR_PATHWAY1;
         end
 
         ASSIGNMENT_STATE_CLEAR_PATHWAY1: begin
@@ -1042,6 +1041,8 @@ always @* begin
     fft_sync_latest = 1'b0;
     reset_dram_ctr = 1'b0;
     i_replay_tready = 1'b0;
+    global_search_idx_incr = 0;
+    clear_recently_assigned = 1'b0;
     
     case(state)
 
@@ -1054,8 +1055,11 @@ always @* begin
             reset_dram_ctr = 1'b1;
             correlation_search_reset = 1'b1;
             correlators_reset = 1'b1;
-            if(trigger_search)
+            clear_recently_assigned = 1'b1;
+            if(trigger_search) begin
+                global_search_idx_incr = currently_decoding & ~global_search_done;
                 next_state = STATE_SYNC_FFT_SAMPLES;
+            end
         end
 
         STATE_SYNC_FFT_SAMPLES: begin
@@ -1143,7 +1147,7 @@ always @* begin
         // matched filtering) for them to subsequently search time offset
         STATE_SEARCH_DONE: begin
             historic_sample_counter_reset = 1'b1;
-            o_pathway_reset = (~global_search_done) & recently_assigned; //TODO: Is this obsolete?!
+            o_pathway_reset = (~global_search_done) & recently_assigned;
             next_state = STATE_REPLAY_CORR_SAMPLES;
         end
 
