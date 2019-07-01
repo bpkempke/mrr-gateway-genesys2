@@ -604,15 +604,16 @@ localparam ASSIGNMENT_STATE_RESET = 0;
 localparam ASSIGNMENT_STATE_IDLE = 1;
 localparam ASSIGNMENT_STATE_READ_ASSIGNMENT1 = 2;
 localparam ASSIGNMENT_STATE_READ_ASSIGNMENT2 = 3;
-localparam ASSIGNMENT_STATE_FIND_PATHWAY = 4;
-localparam ASSIGNMENT_STATE_ASSIGN_PATHWAY = 5;
-localparam ASSIGNMENT_STATE_REMOVE_SKIRT = 6;
-localparam ASSIGNMENT_STATE_SET_ASSIGNMENT_FLAG = 7;
-localparam ASSIGNMENT_STATE_DONE = 8;
-localparam ASSIGNMENT_STATE_HOUSEKEEPING = 9;
-localparam ASSIGNMENT_STATE_CLEAR_PATHWAY1 = 10;
-localparam ASSIGNMENT_STATE_CLEAR_PATHWAY2 = 11;
-localparam ASSIGNMENT_STATE_CLEAR_PATHWAY3 = 12;
+localparam ASSIGNMENT_STATE_FIND_PREEXISTING_PATHWAY = 4;
+localparam ASSIGNMENT_STATE_FIND_PATHWAY = 5;
+localparam ASSIGNMENT_STATE_ASSIGN_PATHWAY = 6;
+localparam ASSIGNMENT_STATE_REMOVE_SKIRT = 7;
+localparam ASSIGNMENT_STATE_SET_ASSIGNMENT_FLAG = 8;
+localparam ASSIGNMENT_STATE_DONE = 9;
+localparam ASSIGNMENT_STATE_HOUSEKEEPING = 10;
+localparam ASSIGNMENT_STATE_CLEAR_PATHWAY1 = 11;
+localparam ASSIGNMENT_STATE_CLEAR_PATHWAY2 = 12;
+localparam ASSIGNMENT_STATE_CLEAR_PATHWAY3 = 13;
 
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] assignment_read_idx;
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] assignment_write_idx;
@@ -747,9 +748,28 @@ always @* begin
 
         ASSIGNMENT_STATE_READ_ASSIGNMENT2: begin
             if(~assignment_read) begin
-                next_assignment_state = ASSIGNMENT_STATE_FIND_PATHWAY;
+                next_assignment_state = ASSIGNMENT_STATE_FIND_PREEXISTING_PATHWAY;
             end else begin
                 next_assignment_state = ASSIGNMENT_STATE_DONE;
+            end
+        end
+
+        //Loop through occupied_idx, latch on any matching CFO assignments (similar logic to ASSIGNMENT_STATE_FIND_PATHWAY except exit to ASSIGNMENT_STATE_ASSIGN_PATHWAY if:
+        //  - currently_decoding[occupied_idx] || recently_assignment[occupied_idx] AND
+        //  - assignment_read_idx is within ASSIGNMENT_SKIRT_WIDTH of pathway_assignment_cfo_idx[occupied_idx] AND
+        //Exit to ASSIGNMENT_STATE_DONE if
+        //  - highest_corr is less than the current correlation OR
+        //  - global_search_done[occupied_idx]
+        ASSIGNMENT_STATE_FIND_PREEXISTING_PATHWAY: begin
+            incr_occupied_idx = ~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < ASSIGNMENT_SKIRT_WIDTH) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < ASSIGNMENT_SKIRT_WIDTH));
+            if(~incr_occupied_idx) begin
+                if(((highest_corr < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]) && (currently_decoding[occupied_idx] || recently_assigned[occupied_idx])) begin
+                    next_assignment_state = ASSIGNMENT_STATE_DONE;
+                end else begin
+                    next_assignment_state = ASSIGNMENT_STATE_ASSIGN_PATHWAY;
+                end
+            end else if(occupied_idx == NUM_DECODE_PATHWAYS-1) begin
+                next_assignment_state = ASSIGNMENT_STATE_FIND_PATHWAY;
             end
         end
 
@@ -759,8 +779,8 @@ always @* begin
             //   - NOT within pull-in range OR
             //   - correlation is less than current assignment OR
             //   - no more global searches left
-            incr_occupied_idx = (currently_decoding[occupied_idx] || recently_assigned[occupied_idx]) && 
-                                ((~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < ASSIGNMENT_SKIRT_WIDTH) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < ASSIGNMENT_SKIRT_WIDTH))) || (highest_corr < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]);
+            incr_occupied_idx = (currently_decoding[occupied_idx] || recently_assigned[occupied_idx]);// && 
+                                //((~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < ASSIGNMENT_SKIRT_WIDTH) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < ASSIGNMENT_SKIRT_WIDTH))) || (highest_corr < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]);
             if(~incr_occupied_idx) begin
                 next_assignment_state = ASSIGNMENT_STATE_ASSIGN_PATHWAY;
             end else if(occupied_idx == NUM_DECODE_PATHWAYS-1) begin
