@@ -219,6 +219,7 @@ reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] cfo_index_last;
 reg [CORR_WIDTH-1:0] highest_corr;
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] highest_corr_idx;
 reg [CORR_METADATA_WIDTH-1:0] metadata_max;
+reg [31:0] corr_max, corr_temp;
 reg highest_corr_triggered_threshold;
 wire [NUM_CORRELATORS_LOG2-1:0] max_corr_sfo_idx;
 wire [CORR_METADATA_WIDTH-1:0] max_metadata_rb;
@@ -266,7 +267,6 @@ always @(posedge clk) begin
 end
 
 //Output correlator values in real-time
-reg [31:0] corr_max, corr_temp;
 reg [CORR_METADATA_WIDTH-1:0] metadata_temp;
 reg corr_valid;
 wire first_cfo_flag = (cfo_index == 0);
@@ -1260,7 +1260,7 @@ endgenerate
 assign i_tready = (cordic_fifo_space[0] > 16);
 
 //assign debug = {cordic_fifo_space[0], global_search_idx[0], state};
-assign debug = {14'd0,currently_decoding,recently_assigned,global_search_idx[1],2'd0,global_search_idx[0],state,22'd0,out_assignment_cfo_idx[19:10],22'd0,out_assignment_cfo_idx[9:0],out_assignment_corr[63:0]};
+assign debug = {12'd0,currently_decoding,recently_assigned,2'd0,global_search_idx[1],2'd0,global_search_idx[0],state,22'd0,out_assignment_cfo_idx[19:10],22'd0,out_assignment_cfo_idx[9:0],out_assignment_corr[63:0]};
 
 endmodule
 
