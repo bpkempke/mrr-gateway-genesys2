@@ -2,6 +2,8 @@ module mrr_loopback_bpk
 #(
     parameter PACKET_INDEX = 10,
     parameter SPP = 64,
+    parameter CWIDTH = 32,
+    parameter ZWIDTH = 24,
     parameter PN_SEQ = 15'b000100110101111
 )(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, tx_en);
 
@@ -57,6 +59,24 @@ module mrr_loopback_bpk
      */
 
     wire do_op = (i_replay_flag) ? i_tkeep : (i_tready & i_tvalid & i_tkeep);
+
+    //Keep CORDIC updated based on input frequency assignment
+    //wire [CWIDTH-1:0] to_cordic_i = 32'h7FFF;
+    //wire [CWIDTH-1:0] to_cordic_q = 32'd0;
+    //wire [CWIDTH-1:0] i_cordic, q_cordic;
+    //m_cordic_z24 #(.bitwidth(CWIDTH)) inst_cordic(
+    //    .clock(clk),
+    //    .reset(rst),
+    //    .enable(1'b1),
+    //    .xi(to_cordic_i),
+    //    .yi(to_cordic_q),
+    //    .zi({{{{ZWIDTH-PRIMARY_FFT_MAX_LEN_LOG2}{1'b0}},z_counter[pathway_idx]} << (ZWIDTH-setting_primary_fft_len_log2)}),
+    //    .flag_in(to_cordic_flag),
+    //    .xo(i_cordic),
+    //    .yo(q_cordic),
+    //    .zo(),
+    //    .flag_out(cordic_flag)
+    //);
 
     assign o_tdata = {16'h7fff,16'h7fff};
     assign o_tvalid = i_tvalid;

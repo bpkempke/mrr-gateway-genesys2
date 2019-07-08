@@ -226,6 +226,10 @@ ad_connect axi_ad9361/adc_enable_q0 mrr_gateway/adc_enable_q0
 ad_connect axi_ad9361/adc_valid_q0 mrr_gateway/adc_valid_q0
 ad_connect axi_ad9361/adc_data_q0 mrr_gateway/adc_data_q0
 ad_connect axi_ad9361/l_clk mrr_gateway/adc_clk
+ad_connect axi_ad9361/dac_enable_i0 mrr_gateway/dac_enable_i0
+ad_connect axi_ad9361/dac_valid_i0 mrr_gateway/dac_valid_i0
+ad_connect axi_ad9361/dac_enable_q0 mrr_gateway/dac_enable_q0
+ad_connect axi_ad9361/dac_valid_q0 mrr_gateway/dac_valid_q0
 ad_connect gateway_debug mrr_gateway/debug
 ad_connect gateway_filterboard mrr_gateway/filterboard
 ad_connect mrr_gateway/up_enable axi_ad9361/up_enable
@@ -343,10 +347,14 @@ ad_connect util_ad9361_divclk/clk_out axi_ad9361_dac_fifo/din_clk
 ad_connect util_ad9361_divclk_reset/peripheral_aresetn axi_ad9361_dac_fifo/din_rstn
 ad_connect axi_ad9361_dac_fifo/dout_enable_0 axi_ad9361/dac_enable_i0
 ad_connect axi_ad9361_dac_fifo/dout_valid_0 axi_ad9361/dac_valid_i0
-ad_connect axi_ad9361_dac_fifo/dout_data_0 axi_ad9361/dac_data_i0
+
+ad_connect axi_ad9361_dac_fifo/dout_data_0 mrr_gateway/out_dac_data_i0
+ad_connect mrr_gateway/dac_data_i0 axi_ad9361/dac_data_i0
+ad_connect axi_ad9361_dac_fifo/dout_data_1 mrr_gateway/out_dac_data_q0
+ad_connect mrr_gateway/dac_data_q0 axi_ad9361/dac_data_q0
+
 ad_connect axi_ad9361_dac_fifo/dout_enable_1 axi_ad9361/dac_enable_q0
 ad_connect axi_ad9361_dac_fifo/dout_valid_1 axi_ad9361/dac_valid_q0
-ad_connect axi_ad9361_dac_fifo/dout_data_1 axi_ad9361/dac_data_q0
 ad_connect axi_ad9361_dac_fifo/dout_enable_2 axi_ad9361/dac_enable_i1
 ad_connect axi_ad9361_dac_fifo/dout_valid_2 axi_ad9361/dac_valid_i1
 ad_connect axi_ad9361_dac_fifo/dout_data_2 axi_ad9361/dac_data_i1
