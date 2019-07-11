@@ -297,6 +297,7 @@ cfo_search_debug
                 .clk(clk),
                 .rst(rst | pathway_reset[pathway_idx]),
                 .setting_primary_fft_len(setting_primary_fft_len),
+                .setting_primary_fft_len_log2(setting_primary_fft_len_log2),
                 .tx_disable(tx_disable),
                 .wait_step(wait_step),
                 .tx_word(tx_word),

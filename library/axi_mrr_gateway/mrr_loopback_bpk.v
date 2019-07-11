@@ -5,7 +5,7 @@ module mrr_loopback_bpk
     parameter CWIDTH = 32,
     parameter ZWIDTH = 24,
     parameter PN_SEQ = 15'b000100110101111
-)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, tx_en);
+)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, setting_primary_fft_len_log2, tx_en);
 
     `include "mrr_params.vh"
 
@@ -47,6 +47,7 @@ module mrr_loopback_bpk
     output reg detector_reset;
 
     input [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len;
+    input [PRIMARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_primary_fft_len_log2;
 
     output reg tx_en;
 
@@ -61,24 +62,44 @@ module mrr_loopback_bpk
     wire do_op = (i_replay_flag) ? i_tkeep : (i_tready & i_tvalid & i_tkeep);
 
     //Keep CORDIC updated based on input frequency assignment
-    //wire [CWIDTH-1:0] to_cordic_i = 32'h7FFF;
-    //wire [CWIDTH-1:0] to_cordic_q = 32'd0;
-    //wire [CWIDTH-1:0] i_cordic, q_cordic;
-    //m_cordic_z24 #(.bitwidth(CWIDTH)) inst_cordic(
-    //    .clock(clk),
-    //    .reset(rst),
-    //    .enable(1'b1),
-    //    .xi(to_cordic_i),
-    //    .yi(to_cordic_q),
-    //    .zi({{{{ZWIDTH-PRIMARY_FFT_MAX_LEN_LOG2}{1'b0}},z_counter[pathway_idx]} << (ZWIDTH-setting_primary_fft_len_log2)}),
-    //    .flag_in(to_cordic_flag),
-    //    .xo(i_cordic),
-    //    .yo(q_cordic),
-    //    .zo(),
-    //    .flag_out(cordic_flag)
-    //);
+    wire [CWIDTH-1:0] to_cordic_i = 32'h7FFF;
+    wire [CWIDTH-1:0] to_cordic_q = 32'd0;
+    wire [CWIDTH-1:0] i_cordic, q_cordic;
+    reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] z_counter;
+    m_cordic_z24 #(.bitwidth(CWIDTH)) inst_cordic(
+        .clock(clk),
+        .reset(rst),
+        .enable(1'b1),
+        .xi(to_cordic_i),
+        .yi(to_cordic_q),
+        .zi({{{{ZWIDTH-PRIMARY_FFT_MAX_LEN_LOG2}{1'b0}},z_counter} << (ZWIDTH-setting_primary_fft_len_log2)}),
+        .flag_in(1'b0),
+        .xo(i_cordic),
+        .yo(q_cordic),
+        .zo(),
+        .flag_out()
+    );
 
-    assign o_tdata = {16'h7fff,16'h7fff};
+    reg [2:0] z_counter_div;
+    always @(posedge clk) begin
+        if(rst) begin
+            z_counter <= 0;
+            z_counter_div <= 0;
+        end else begin
+            //For now, just a fixed per-clock-cycle 
+
+	    //TODO: This probably isn't ideal.  Should ideally be linked to
+	    //output sample rate, but that has to cross a clock domain which
+	    //can get things messy....
+            z_counter_div <= z_counter_div + 1;
+            if(z_counter_div == 3'd4) begin
+                z_counter_div <= 0;
+                z_counter <= z_counter + cfo_idx;
+            end
+        end
+    end
+
+    assign o_tdata = {q_cordic[15:0],i_cordic[15:0]};
     assign o_tvalid = i_tvalid;
     assign o_tlast = i_tlast;
     assign i_tready = o_tready;

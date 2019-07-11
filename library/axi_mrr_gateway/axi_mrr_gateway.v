@@ -602,9 +602,14 @@ module axi_mrr_gateway #(
   wire txnrx_request = tx_en;
   wire txnrx_request_sync;
   wire [31:0] out_tdata_sync;
+  reg [31:0] out_tdata_presync_reg;
   wire [31:0] out_tdata_presync = (out_tkeep) ? out_tdata : 32'd0;
   synchronizer #(.INITIAL_VAL(1'b0)) txnrx_request_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(txnrx_request), .out(txnrx_request_sync));
-  synchronizer #(.WIDTH(32), .INITIAL_VAL(0)) out_tdata_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(out_tdata_presync), .out(out_tdata_sync));
+  synchronizer #(.WIDTH(32), .INITIAL_VAL(0)) out_tdata_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(out_tdata_presync_reg), .out(out_tdata_sync));
+
+  always @(posedge ce_clk) begin
+    out_tdata_presync_reg <= out_tdata_presync;
+  end
 
   assign dac_data_i0 = (bypass) ? out_dac_data_i0 : out_tdata_sync[15:0];
   assign dac_data_q0 = (bypass) ? out_dac_data_q0 : out_tdata_sync[31:16];
@@ -1569,7 +1574,7 @@ module axi_mrr_gateway #(
       18 : rb_data <= cfo_search_debug;
       19 : rb_data <= {32'h0,4'h0,GIT_VERSION};
       20 : rb_data <= primary_fft_mask_temp;
-      21 : rb_data <= {tx_counter,dac_enable_i0,dac_enable_q0,dac_valid_i0,dac_valid_q0,tx_disable,tx_en};
+      21 : rb_data <= {tx_counter,tx_disable,tx_en};
       22 : rb_data <= out_tdata_presync;
       default        : rb_data <= 64'h0BADC0DE0BADC0DE;
     endcase
