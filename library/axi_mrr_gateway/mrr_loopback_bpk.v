@@ -362,8 +362,8 @@ module mrr_loopback_bpk
 	        // However, it is up to this block to synchronize to the following
 	        // PN code (15'b000100110101111).  Do this correlation by summing
 	        // difference-based measurements between the zero- and one-chips.
-                pn_correlation_update_zero_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 1);//TODO: Needs to include the next index as well... | mrr_cycle_counter_int_part == 3);
-                pn_correlation_update_one_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3);//TODO: Needs to include the next index as well | mrr_cycle_counter_int_part == 5);
+                pn_correlation_update_zero_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3);//TODO: Needs to include the next index as well... | mrr_cycle_counter_int_part == 3);
+                pn_correlation_update_one_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 5);//TODO: Needs to include the next index as well | mrr_cycle_counter_int_part == 5);
                 pn_correlation_finished_flag = (mrr_cycle_counter_int_part == recharge_len+1) & (payload_bit_ctr == (PN_SEQ_LEN + SFO_SEQ_LEN));
 
                 accum_rst = mrr_cycle_counter_changed;
