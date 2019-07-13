@@ -107,9 +107,11 @@ module mrr_loopback_bpk
     reg [2:0] state, next_state;
     reg mrr_cycle_counter_incr, mrr_cycle_counter_rst, mrr_cycle_counter_rst_int_part;
     reg tx_bit_ctr_incr, tx_bit_ctr_rst;
-    reg [15+OVERSAMPLING_RATIO_LOG2:0] mrr_cycle_counter, mrr_cycle_counter_last;
-    wire [15:0] mrr_cycle_counter_int_part = mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2:OVERSAMPLING_RATIO_LOG2];
-    wire [OVERSAMPLING_RATIO_LOG2-1:0] mrr_cycle_counter_frac_part = mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2-1:0];
+    reg [SFO_CTR_LEN_LOG2:0] sfo_ctr;
+    reg [7+SFO_CTR_LEN_LOG2:0] jitter;
+    reg [15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2:0] mrr_cycle_counter, mrr_cycle_counter_last;
+    wire [15:0] mrr_cycle_counter_int_part = mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16];
+    wire [OVERSAMPLING_RATIO_LOG2-1:0] mrr_cycle_counter_frac_part = mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1-:OVERSAMPLING_RATIO_LOG2];
     reg [5:0] tx_bit_ctr;
 
     wire mrr_cycle_counter_changed = (mrr_cycle_counter_int_part != mrr_cycle_counter_last);
@@ -172,6 +174,8 @@ module mrr_loopback_bpk
     always @(posedge clk) begin
         if(rst) begin
             state <= ST_READY;
+            sfo_ctr <= 0;
+            jitter <= 0;
             mrr_cycle_counter <= 0;
             mrr_cycle_counter_last <= 0;
             tx_bit_ctr <= 0;
@@ -223,7 +227,7 @@ module mrr_loopback_bpk
                 end
             end else if(jitter_accum_en) begin
                 jitter_accum <= jitter_accum + i_tdata;
-                if(mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2-1])
+                if(mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2+SFO_CTR_LEN_LOG2-1])
                     jitter_accum_second_half <= jitter_accum_second_half + i_tdata;
                 else
                     jitter_accum_first_half <= jitter_accum_first_half + i_tdata;
@@ -264,18 +268,35 @@ module mrr_loopback_bpk
             //mrr_cycle_counter counts the number of resampled MRR cycles which have elapsed since find_max triggered
             if(mrr_cycle_counter_rst) begin
                 mrr_cycle_counter <= 0;
+                sfo_ctr <= {1'b1, {{SFO_CTR_LEN_LOG2}{1'b0}}};
+                jitter <= {max_jitter, {{SFO_CTR_LEN_LOG2}{1'b0}}};
             end else if(mrr_cycle_counter_rst_int_part) begin
-                mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2:OVERSAMPLING_RATIO_LOG2] <= 0;
+                mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16] <= 0;
             end else if(mrr_cycle_counter_incr) begin
-                mrr_cycle_counter <= mrr_cycle_counter + 1;
+                mrr_cycle_counter <= mrr_cycle_counter + sfo_ctr;
             end else if(peak_search_update_timing & ~peak_search_update_timing_complete) begin
                 jitter_max_accum <= 0;
                 peak_val <= 0;
                 peak_search_update_timing_complete <= 1'b1;
+
+		//Decrease allowable jitter and sfo frequency estimate once we
+		//  know we're actually tracking symbols...
+                if(payload_bit_ctr > SFO_SEQ_LEN) begin
+                    if(jitter >= JITTER_INCR) begin
+                        jitter <= jitter - JITTER_INCR;
+                    end
+ 
+                    if(peak_less_than_half) begin
+                        sfo_ctr <= sfo_ctr + SFO_CTR_INCR;
+                    end else begin
+                        sfo_ctr <= sfo_ctr - SFO_CTR_INCR;
+                    end
+                end
+
                 if(peak_less_than_half) begin
-                    mrr_cycle_counter <= max_jitter;
+                    mrr_cycle_counter <= {16'd0,mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1:0]}+jitter;
                 end else begin
-                    mrr_cycle_counter <= {{{OVERSAMPLING_RATIO_LOG2+8}{1'b1}},~max_jitter};
+                    mrr_cycle_counter <= {16'd0,mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1:0]}-jitter;
                 end
             end
                 
