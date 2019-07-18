@@ -36,9 +36,10 @@ SECONDARY_FFT_MAX_LEN_LOG2 = 9
 RECHARGE_CYCLES = 4#32
 SYMBOL_CYCLES = 4
 
-SFO_CTR_LEN_LOG2 = 8
+SFO_CTR_LEN_LOG2 = 10
 SFO_CTR_INCR = 1
 JITTER_INCR = 10
+JITTER_MIN = 100
 SKIRT_WIDTH_LOG2 = 1
 ASSIGNMENT_SKIRT_WIDTH = 30;
 CORR_WAIT_LEN_LOG2 = 15
@@ -134,6 +135,7 @@ with open('mrr_params.vh','w') as f:
     f.write('localparam SFO_CTR_LEN_LOG2 = {};\n'.format(SFO_CTR_LEN_LOG2))
     f.write('localparam SFO_CTR_INCR = {};\n'.format(SFO_CTR_INCR))
     f.write('localparam JITTER_INCR = {};\n'.format(JITTER_INCR))
+    f.write('localparam JITTER_MIN = {};\n'.format(JITTER_MIN))
     f.write('localparam MAX_CHIPS_PER_SYMBOL_LOG2 = {};\n'.format(MAX_CHIPS_PER_SYMBOL_LOG2))
     f.write('localparam CORR_WAIT_LEN_LOG2 = {};\n'.format(CORR_WAIT_LEN_LOG2))
     f.write('localparam ASSIGNMENT_SKIRT_WIDTH = {};\n'.format(ASSIGNMENT_SKIRT_WIDTH))

@@ -110,6 +110,7 @@ module mrr_loopback_bpk
     reg [SFO_CTR_LEN_LOG2:0] sfo_ctr;
     reg [7+SFO_CTR_LEN_LOG2:0] jitter;
     reg [15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2:0] mrr_cycle_counter, mrr_cycle_counter_last;
+    reg [15+OVERSAMPLING_RATIO_LOG2:0] sfo_counter_num, sfo_counter_denom;
     wire [15:0] mrr_cycle_counter_int_part = mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16];
     wire [OVERSAMPLING_RATIO_LOG2-1:0] mrr_cycle_counter_frac_part = mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1-:OVERSAMPLING_RATIO_LOG2];
     reg [5:0] tx_bit_ctr;
@@ -162,6 +163,27 @@ module mrr_loopback_bpk
     reg [31:0] pps_counter;
     reg pps_trigger;
 
+    //Divider to calculate accurate SFO
+    wire [63:0] sfo_div_result;
+    reg [63:0] sfo_div_result_reg;
+    wire [SFO_CTR_LEN_LOG2:0] sfo_ctr_calc = sfo_div_result_reg[32-:SFO_CTR_LEN_LOG2+1];
+    wire sfo_div_result_valid;
+    divide_uint32 sfo_divide_inst (
+        .aclk(clk),
+        .aresetn(~rst),
+        .s_axis_divisor_tvalid(1'b1),
+        .s_axis_divisor_tready(),
+        .s_axis_divisor_tlast(1'b0),
+        .s_axis_divisor_tdata({{{16-OVERSAMPLING_RATIO_LOG2}{1'b0}},sfo_counter_denom}),
+        .s_axis_dividend_tvalid(1'b1),
+        .s_axis_dividend_tready(),
+        .s_axis_dividend_tlast(1'b0),
+        .s_axis_dividend_tdata({{{16-OVERSAMPLING_RATIO_LOG2}{1'b0}},sfo_counter_num}),
+        .m_axis_dout_tvalid(sfo_div_result_valid),
+        .m_axis_dout_tready(1'b1),
+        .m_axis_dout_tdata(sfo_div_result)
+    );
+
     localparam ST_READY = 0;
     localparam ST_WAIT = 1;
     localparam ST_WAIT_UNTIL_FIRST_BIT = 2;
@@ -177,6 +199,9 @@ module mrr_loopback_bpk
             sfo_ctr <= 0;
             jitter <= 0;
             mrr_cycle_counter <= 0;
+            sfo_counter_num <= 0;
+            sfo_counter_denom <= 0;
+            sfo_div_result_reg <= 0;
             mrr_cycle_counter_last <= 0;
             tx_bit_ctr <= 0;
             accum <= 0;
@@ -206,6 +231,10 @@ module mrr_loopback_bpk
             end else begin
                 pps_counter <= pps_counter + 1;
                 pps_trigger <= 1'b0;
+            end
+
+            if(sfo_div_result_valid) begin
+                sfo_div_result_reg <= sfo_div_result;
             end
 
             //This accumulator integrates the amount of energy (from CFO) experienced during each bit
@@ -268,12 +297,16 @@ module mrr_loopback_bpk
             //mrr_cycle_counter counts the number of resampled MRR cycles which have elapsed since find_max triggered
             if(mrr_cycle_counter_rst) begin
                 mrr_cycle_counter <= 0;
+                sfo_counter_num <= 0;
+                sfo_counter_denom <= 0;
                 sfo_ctr <= {1'b1, {{SFO_CTR_LEN_LOG2}{1'b0}}};
                 jitter <= {max_jitter, {{SFO_CTR_LEN_LOG2}{1'b0}}};
             end else if(mrr_cycle_counter_rst_int_part) begin
                 mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16] <= 0;
             end else if(mrr_cycle_counter_incr) begin
                 mrr_cycle_counter <= mrr_cycle_counter + sfo_ctr;
+                sfo_counter_num <= sfo_counter_num + 1;
+                sfo_counter_denom <= sfo_counter_denom + 1;
             end else if(peak_search_update_timing & ~peak_search_update_timing_complete) begin
                 jitter_max_accum <= 0;
                 peak_val <= 0;
@@ -281,22 +314,28 @@ module mrr_loopback_bpk
 
 		//Decrease allowable jitter and sfo frequency estimate once we
 		//  know we're actually tracking symbols...
-                if(payload_bit_ctr > SFO_SEQ_LEN) begin
-                    if(jitter >= JITTER_INCR) begin
-                        jitter <= jitter - JITTER_INCR;
-                    end
- 
-                    if(peak_less_than_half) begin
-                        sfo_ctr <= sfo_ctr + SFO_CTR_INCR;
-                    end else begin
-                        sfo_ctr <= sfo_ctr - SFO_CTR_INCR;
-                    end
+                if(payload_bit_ctr > SFO_SEQ_LEN+PN_SEQ_LEN) begin
+                    jitter <= {2'b0, max_jitter, {{SFO_CTR_LEN_LOG2-2}{1'b0}}};
+                    sfo_ctr <= sfo_ctr_calc;
                 end
+                //if(payload_bit_ctr > SFO_SEQ_LEN) begin
+                //    if(jitter >= JITTER_MIN+JITTER_INCR) begin
+                //        jitter <= jitter - JITTER_INCR;
+                //    end
+ 
+                //    if(peak_less_than_half) begin
+                //        sfo_ctr <= sfo_ctr + SFO_CTR_INCR;
+                //    end else begin
+                //        sfo_ctr <= sfo_ctr - SFO_CTR_INCR;
+                //    end
+                //end
 
                 if(peak_less_than_half) begin
                     mrr_cycle_counter <= {16'd0,mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1:0]}+jitter;
+                    sfo_counter_denom <= sfo_counter_denom - max_jitter;
                 end else begin
                     mrr_cycle_counter <= {16'd0,mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1:0]}-jitter;
+                    sfo_counter_denom <= sfo_counter_denom + max_jitter;
                 end
             end
                 
@@ -412,7 +451,7 @@ module mrr_loopback_bpk
 	    //Then transmit the packet, one bit at a time.  Transition back to
 	    // a waiting state after all 32 bits have been transmitted to MRR
             ST_TX: begin
-                tx_en = 1'b1;
+                tx_en = ~tx_disable;
                 detector_reset = 1'b1;
                 mrr_cycle_counter_incr = do_op;
                 mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_int_part == 4);
