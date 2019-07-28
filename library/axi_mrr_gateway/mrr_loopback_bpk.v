@@ -110,7 +110,7 @@ module mrr_loopback_bpk
     reg [SFO_CTR_LEN_LOG2:0] sfo_ctr;
     reg [7+SFO_CTR_LEN_LOG2:0] jitter;
     reg [15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2:0] mrr_cycle_counter, mrr_cycle_counter_last;
-    reg [15+OVERSAMPLING_RATIO_LOG2:0] sfo_counter_num, sfo_counter_denom;
+    reg [15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2:0] sfo_counter_num, sfo_counter_denom;
     wire [15:0] mrr_cycle_counter_int_part = mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16];
     wire [OVERSAMPLING_RATIO_LOG2-1:0] mrr_cycle_counter_frac_part = mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1-:OVERSAMPLING_RATIO_LOG2];
     reg [5:0] tx_bit_ctr;
@@ -148,6 +148,7 @@ module mrr_loopback_bpk
     //Intended timing of data demodulation:
     // mrr_cycle=0,1: silent (
     reg peak_search_en, peak_search_update_timing, peak_search_update_timing_complete, peak_less_than_half;
+    //assign o_decoded_tdata = (metadata_push_flag) ? cur_metadata_mux : {peak_less_than_half,sfo_ctr,accum[19:0]};
     reg [ESAMP_WIDTH-1:0] peak_val;
     reg [19:0] peak_idx, peak_idx_end;
 
@@ -174,11 +175,11 @@ module mrr_loopback_bpk
         .s_axis_divisor_tvalid(1'b1),
         .s_axis_divisor_tready(),
         .s_axis_divisor_tlast(1'b0),
-        .s_axis_divisor_tdata({{{16-OVERSAMPLING_RATIO_LOG2}{1'b0}},sfo_counter_denom}),
+        .s_axis_divisor_tdata({{{32-16-OVERSAMPLING_RATIO_LOG2-SFO_CTR_LEN_LOG2}{1'b0}},sfo_counter_denom}),
         .s_axis_dividend_tvalid(1'b1),
         .s_axis_dividend_tready(),
         .s_axis_dividend_tlast(1'b0),
-        .s_axis_dividend_tdata({{{16-OVERSAMPLING_RATIO_LOG2}{1'b0}},sfo_counter_num}),
+        .s_axis_dividend_tdata({{{32-16-OVERSAMPLING_RATIO_LOG2-SFO_CTR_LEN_LOG2}{1'b0}},sfo_counter_num}),
         .m_axis_dout_tvalid(sfo_div_result_valid),
         .m_axis_dout_tready(1'b1),
         .m_axis_dout_tdata(sfo_div_result)
@@ -305,8 +306,8 @@ module mrr_loopback_bpk
                 mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16] <= 0;
             end else if(mrr_cycle_counter_incr) begin
                 mrr_cycle_counter <= mrr_cycle_counter + sfo_ctr;
-                sfo_counter_num <= sfo_counter_num + 1;
-                sfo_counter_denom <= sfo_counter_denom + 1;
+                sfo_counter_num <= sfo_counter_num + sfo_ctr;
+                sfo_counter_denom <= sfo_counter_denom + sfo_ctr;
             end else if(peak_search_update_timing & ~peak_search_update_timing_complete) begin
                 jitter_max_accum <= 0;
                 peak_val <= 0;
@@ -332,10 +333,12 @@ module mrr_loopback_bpk
 
                 if(peak_less_than_half) begin
                     mrr_cycle_counter <= {16'd0,mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1:0]}+jitter;
-                    sfo_counter_denom <= sfo_counter_denom - max_jitter;
+                    sfo_counter_denom <= sfo_counter_denom - jitter;
+                    //sfo_counter_num <= sfo_counter_num + jitter;
                 end else begin
                     mrr_cycle_counter <= {16'd0,mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1:0]}-jitter;
-                    sfo_counter_denom <= sfo_counter_denom + max_jitter;
+                    sfo_counter_denom <= sfo_counter_denom + jitter;
+                    //sfo_counter_num <= sfo_counter_num - jitter;
                 end
             end
                 
@@ -427,7 +430,7 @@ module mrr_loopback_bpk
                 pn_correlation_finished_flag = (mrr_cycle_counter_int_part == recharge_len+1) & (payload_bit_ctr == (PN_SEQ_LEN + SFO_SEQ_LEN));
 
                 accum_rst = mrr_cycle_counter_changed;
-                jitter_accum_rst = mrr_cycle_counter_changed & (mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2-1:OVERSAMPLING_RATIO_LOG2-1] == 0);
+                jitter_accum_rst = mrr_cycle_counter_changed & (mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2+SFO_CTR_LEN_LOG2-1:OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1] == 0);
                 o_decoded_tvalid = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part <= recharge_len+2) & (mrr_cycle_counter_int_part > 0);
                 o_decoded_tlast = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == recharge_len+2);
 
