@@ -104,7 +104,7 @@ module mrr_loopback_bpk
     assign o_tlast = i_tlast;
     assign i_tready = o_tready;
 
-    reg [2:0] state, next_state;
+    reg [3:0] state, next_state;
     reg mrr_cycle_counter_incr, mrr_cycle_counter_rst, mrr_cycle_counter_rst_int_part;
     reg tx_bit_ctr_incr, tx_bit_ctr_rst;
     reg [SFO_CTR_LEN_LOG2:0] sfo_ctr;
@@ -189,10 +189,11 @@ module mrr_loopback_bpk
     localparam ST_WAIT = 1;
     localparam ST_WAIT_UNTIL_FIRST_BIT = 2;
     localparam ST_RX_PAYLOAD = 3;
-    localparam ST_WAIT_TURNAROUND = 4;
-    localparam ST_TX = 5;
-    localparam ST_SELF_TRIGGER_WAIT = 6;
-    localparam ST_SEND_METADATA = 7;
+    localparam ST_WAIT_JITTER = 4;
+    localparam ST_WAIT_TURNAROUND = 5;
+    localparam ST_TX = 6;
+    localparam ST_SELF_TRIGGER_WAIT = 7;
+    localparam ST_SEND_METADATA = 8;
 
     always @(posedge clk) begin
         if(rst) begin
@@ -438,6 +439,17 @@ module mrr_loopback_bpk
                 peak_search_update_timing = (mrr_cycle_counter_int_part == recharge_len+2);
 
                 if((payload_bit_ctr-pn_result_idx) == num_payload_bits) begin
+                    next_state = ST_WAIT_JITTER;
+                end
+            end
+
+            ST_WAIT_JITTER: begin
+		//Jitter added on the last bit may make the
+		// mrr_cycle_counter_frac_part go negative.  Therefore, in order
+		// to get the correct turnaround time, we should wait for it to
+		// go positive again...
+                mrr_cycle_counter_incr = do_op;
+                if(~mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1]) begin
                     mrr_cycle_counter_rst_int_part = 1'b1;
                     next_state = ST_WAIT_TURNAROUND;
                 end

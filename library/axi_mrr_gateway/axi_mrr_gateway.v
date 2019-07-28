@@ -605,7 +605,7 @@ module axi_mrr_gateway #(
   reg [31:0] out_tdata_presync_reg;
   wire [31:0] out_tdata_presync = (out_tkeep) ? out_tdata : 32'd0;
   synchronizer #(.INITIAL_VAL(1'b0)) txnrx_request_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(txnrx_request), .out(txnrx_request_sync));
-  synchronizer #(.WIDTH(32), .INITIAL_VAL(0)) out_tdata_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(out_tdata_presync_reg), .out(out_tdata_sync));
+  synchronizer #(.WIDTH(32), .INITIAL_VAL(0)) out_tdata_sync_inst (.clk(adc_clk), .rst(1'b0), .in(out_tdata_presync_reg), .out(out_tdata_sync));
 
   always @(posedge ce_clk) begin
     out_tdata_presync_reg <= out_tdata_presync;
