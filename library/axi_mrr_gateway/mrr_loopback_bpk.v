@@ -61,6 +61,9 @@ module mrr_loopback_bpk
 
     wire do_op = (i_replay_flag) ? i_tkeep : (i_tready & i_tvalid & i_tkeep);
 
+    reg [7:0] loopback_counter;
+    reg do_op_loopback;
+
     //Keep CORDIC updated based on input frequency assignment
     wire [CWIDTH-1:0] to_cordic_i = 32'h7FFF;
     wire [CWIDTH-1:0] to_cordic_q = 32'd0;
@@ -223,6 +226,8 @@ module mrr_loopback_bpk
             cur_metadata_idx <= 0;
             pps_counter <= 0;
             pps_trigger <= 1'b0;
+            loopback_counter <= 0;
+            do_op_loopback <= 0;
         end else begin
             state <= next_state;
             mrr_cycle_counter_last <= mrr_cycle_counter_int_part;
@@ -357,6 +362,14 @@ module mrr_loopback_bpk
             end else if(pn_correlation_update_one_flag) begin
                 pn_correlation_write_addr <= pn_correlation_write_addr + 1;
             end
+
+            loopback_counter <= loopback_counter + 1;
+            if(loopback_counter == 24) begin
+                loopback_counter <= 0;
+                do_op_loopback <= 1'b1;
+            end else begin
+                do_op_loopback <= 1'b0;
+            end
         end
     end
 
@@ -456,7 +469,7 @@ module mrr_loopback_bpk
             end
 
             ST_WAIT_TURNAROUND: begin
-                mrr_cycle_counter_incr = do_op;
+                mrr_cycle_counter_incr = do_op_loopback;
                 if(mrr_cycle_counter_int_part == wait_step) begin
                     mrr_cycle_counter_rst_int_part = 1'b1;
                     next_state = ST_TX;
@@ -468,7 +481,7 @@ module mrr_loopback_bpk
             ST_TX: begin
                 tx_en = ~tx_disable;
                 detector_reset = 1'b1;
-                mrr_cycle_counter_incr = do_op;
+                mrr_cycle_counter_incr = do_op_loopback;
                 mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_int_part == 4);
                 tx_bit_ctr_incr = (mrr_cycle_counter_int_part == 4);
                 o_tkeep = (tx_disable) ? 1'b0 : (cur_bit) ? (mrr_cycle_counter_int_part == 0) : (mrr_cycle_counter_int_part == 2);
