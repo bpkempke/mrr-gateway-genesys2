@@ -364,7 +364,7 @@ module mrr_loopback_bpk
             end
 
             loopback_counter <= loopback_counter + 1;
-            if(loopback_counter == 24) begin
+            if(loopback_counter == 199) begin
                 loopback_counter <= 0;
                 do_op_loopback <= 1'b1;
             end else begin
@@ -469,6 +469,7 @@ module mrr_loopback_bpk
             end
 
             ST_WAIT_TURNAROUND: begin
+                tx_en = ~tx_disable;
                 mrr_cycle_counter_incr = do_op_loopback;
                 if(mrr_cycle_counter_int_part == wait_step) begin
                     mrr_cycle_counter_rst_int_part = 1'b1;
@@ -527,6 +528,8 @@ module mrr_loopback_bpk
     assign pn_readback_se = {{{PN_SEQ_LEN_LOG2}{pn_readback[ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2]}},pn_readback};
     reg [PN_SEQ_LEN-1:0] pn_sequence;
 
+    //wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] zero_accum_padded = (zero_accum > accum) ? 1 : 0;//TODO: Taken out due to persistent drift of CFO after first correlation sequence.  Would be better to have this here instead: {1'b0,zero_accum};
+    //wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] accum_padded = (accum > zero_accum) ? 1 : 0;//TODO: Taken out due to persistent drift of CFO after first correlation sequence.  WOuld be better to have this here instead: {1'b0,accum};
     wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] zero_accum_padded = {1'b0,zero_accum};
     wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] accum_padded = {1'b0,accum};
     ram_2port #(.DWIDTH(ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1), .AWIDTH(PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2)) pn_rb_ram (
