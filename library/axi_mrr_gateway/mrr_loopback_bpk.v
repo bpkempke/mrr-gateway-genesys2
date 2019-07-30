@@ -121,7 +121,8 @@ module mrr_loopback_bpk
     wire mrr_cycle_counter_changed = (mrr_cycle_counter_int_part != mrr_cycle_counter_last);
 
     //Accumulators for soft symbol output
-    reg [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2-1:0] accum, zero_accum;
+    reg [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2-1:0] accum;
+    reg [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] zero_accum, one_accum;
     reg [OVERSAMPLING_RATIO_LOG2:0] accum_count;
     reg [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2:0] jitter_max_accum, jitter_accum, jitter_accum_first_half, jitter_accum_second_half;
 
@@ -157,6 +158,7 @@ module mrr_loopback_bpk
 
     wire cur_bit = tx_word[tx_bit_ctr];
 
+    reg pn_correlation_reset_accumulators;
     reg pn_correlation_update_zero_flag;
     reg pn_correlation_update_one_flag;
     reg pn_correlation_finished_flag;
@@ -220,6 +222,7 @@ module mrr_loopback_bpk
             peak_search_update_timing_complete <= 1'b1;
             pn_correlation_write_addr <= 0;
             zero_accum <= 0;
+            one_accum <= 0;
             jitter_accum_first_half <= 0; 
             jitter_accum_second_half <= 0;
             jitter_max_accum <= 0;
@@ -357,10 +360,14 @@ module mrr_loopback_bpk
 
             if(pn_correlation_reset) begin
                 pn_correlation_write_addr <= 0;
-            end else if(pn_correlation_update_zero_flag) begin
-                zero_accum <= accum;
-            end else if(pn_correlation_update_one_flag) begin
+            end else if(pn_correlation_reset_accumulators) begin
+                zero_accum <= 0;
+                one_accum <= 0;
                 pn_correlation_write_addr <= pn_correlation_write_addr + 1;
+            end else if(pn_correlation_update_zero_flag) begin
+                zero_accum <= zero_accum + accum;
+            end else if(pn_correlation_update_one_flag) begin
+                one_accum <= one_accum + accum;
             end
 
             loopback_counter <= loopback_counter + 1;
@@ -396,6 +403,7 @@ module mrr_loopback_bpk
         tx_en = 1'b0;
         peak_search_en = 1'b0;
         peak_search_update_timing = 1'b0;
+        pn_correlation_reset_accumulators = 1'b0;
         pn_correlation_update_zero_flag = 1'b0;
         pn_correlation_update_one_flag = 1'b0;
         pn_correlation_finished_flag = 1'b0;
@@ -439,8 +447,9 @@ module mrr_loopback_bpk
 	        // However, it is up to this block to synchronize to the following
 	        // PN code (15'b000100110101111).  Do this correlation by summing
 	        // difference-based measurements between the zero- and one-chips.
-                pn_correlation_update_zero_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3);//TODO: Needs to include the next index as well... | mrr_cycle_counter_int_part == 3);
-                pn_correlation_update_one_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 5);//TODO: Needs to include the next index as well | mrr_cycle_counter_int_part == 5);
+                pn_correlation_update_zero_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3 || mrr_cycle_counter_int_part == 4);
+                pn_correlation_update_one_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 5 || mrr_cycle_counter_int_part == 6);
+                pn_correlation_reset_accumulators = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 7);
                 pn_correlation_finished_flag = (mrr_cycle_counter_int_part == recharge_len+1) & (payload_bit_ctr == (PN_SEQ_LEN + SFO_SEQ_LEN));
 
                 accum_rst = mrr_cycle_counter_changed;
@@ -520,25 +529,25 @@ module mrr_loopback_bpk
     reg pn_set_result_offset;
     reg pn_reset_search;
 
-    reg [PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] pn_corr_accum, highest_pn_search_corr;
+    reg [PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] pn_corr_accum, highest_pn_search_corr;
     reg [SFO_SEQ_LEN_LOG2-1:0] highest_pn_search_idx;
 
-    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] pn_readback;
-    wire [PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] pn_readback_se;
-    assign pn_readback_se = {{{PN_SEQ_LEN_LOG2}{pn_readback[ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2]}},pn_readback};
+    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] pn_readback;
+    wire [PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] pn_readback_se;
+    assign pn_readback_se = {{{PN_SEQ_LEN_LOG2}{pn_readback[ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1]}},pn_readback};
     reg [PN_SEQ_LEN-1:0] pn_sequence;
 
-    //wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] zero_accum_padded = (zero_accum > accum) ? 1 : 0;//TODO: Taken out due to persistent drift of CFO after first correlation sequence.  Would be better to have this here instead: {1'b0,zero_accum};
-    //wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] accum_padded = (accum > zero_accum) ? 1 : 0;//TODO: Taken out due to persistent drift of CFO after first correlation sequence.  WOuld be better to have this here instead: {1'b0,accum};
-    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] zero_accum_padded = {1'b0,zero_accum};
-    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] accum_padded = {1'b0,accum};
-    ram_2port #(.DWIDTH(ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1), .AWIDTH(PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2)) pn_rb_ram (
+    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] zero_accum_padded = {1'b0,zero_accum};
+    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] one_accum_padded = {1'b0,one_accum};
+    //ram_2port #(.DWIDTH(ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+2), .AWIDTH(PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2)) pn_rb_ram (
+    wire pn_readback_short;
+    ram_2port #(.DWIDTH(1), .AWIDTH(PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2)) pn_rb_ram (
         //Port A (written to by decoding logic)
         .clka(clk),
         .ena(1'b1),
-        .wea(pn_correlation_update_one_flag),
+        .wea(pn_correlation_reset_accumulators),
         .addra(pn_correlation_write_addr),
-        .dia(zero_accum_padded-accum_padded),
+        .dia((zero_accum > one_accum) ? 1'b1 : 1'b0),//zero_accum_padded-one_accum_padded),
         .doa(),
 
         //Port B (read from correlation logic)
@@ -547,8 +556,11 @@ module mrr_loopback_bpk
         .web(1'b0),
         .addrb(pn_read_idx),
         .dib(),
-        .dob(pn_readback)
+        .dob(pn_readback_short)
     );
+
+    //TODO: Probably should reduce width of pn_readback to a more reasonable level...
+    assign pn_readback = (pn_readback_short == 1'b1) ? {{{ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1}{1'b0}},1'b1} : {{ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+2}{1'b1}};
 
     localparam PN_SEARCH_IDLE = 0;
     localparam PN_SEARCH_CORR_UPDATE = 1;
@@ -597,7 +609,7 @@ module mrr_loopback_bpk
                 pn_sequence <= PN_SEQ;
                 pn_search_idx <= pn_search_idx + 8'd1;
                 pn_search_sub_idx <= 0;
-                if((pn_corr_accum > highest_pn_search_corr) && (pn_corr_accum[PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2] == 1'b0)) begin
+                if((pn_corr_accum > highest_pn_search_corr) && (pn_corr_accum[PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1] == 1'b0)) begin
                     highest_pn_search_corr <= pn_corr_accum;
                     highest_pn_search_idx <= pn_search_idx;
                 end
