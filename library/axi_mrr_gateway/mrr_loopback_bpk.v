@@ -485,7 +485,7 @@ module mrr_loopback_bpk
                 mrr_cycle_counter_incr = do_op_loopback;
                 mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_int_part == 4);
                 tx_bit_ctr_incr = (mrr_cycle_counter_int_part == 4);
-                o_tkeep = (tx_disable) ? 1'b0 : (cur_bit) ? (mrr_cycle_counter_int_part == 0) : (mrr_cycle_counter_int_part == 2);
+                o_tkeep = (tx_disable) ? 1'b0 : (cur_bit) ? (mrr_cycle_counter_int_part <= 1) : (mrr_cycle_counter_int_part >= 2);
                 if(tx_bit_ctr == 32) begin
                     next_state = ST_SELF_TRIGGER_WAIT;
                 end 
