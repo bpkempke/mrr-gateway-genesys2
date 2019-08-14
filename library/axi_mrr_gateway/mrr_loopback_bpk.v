@@ -115,6 +115,7 @@ module mrr_loopback_bpk
     reg [15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2:0] mrr_cycle_counter, mrr_cycle_counter_last;
     reg [15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2:0] sfo_counter_num, sfo_counter_denom;
     wire [15:0] mrr_cycle_counter_int_part = mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16];
+    wire [15:0] mrr_cycle_counter_loopback_part = mrr_cycle_counter[13+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16];
     wire [OVERSAMPLING_RATIO_LOG2-1:0] mrr_cycle_counter_frac_part = mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1-:OVERSAMPLING_RATIO_LOG2];
     reg [5:0] tx_bit_ctr;
 
@@ -370,13 +371,23 @@ module mrr_loopback_bpk
                 one_accum <= one_accum + accum;
             end
 
-            loopback_counter <= loopback_counter + 1;
-            if(loopback_counter == 199) begin
-                loopback_counter <= 0;
-                do_op_loopback <= 1'b1;
+            do_op_loopback <= 1'b0;
+            if(do_op) begin
+                //TODO: Difference in timing between RX and loopback is a little janky...
+                loopback_counter <= loopback_counter + 25;
             end else begin
-                do_op_loopback <= 1'b0;
+                if(loopback_counter >= 32) begin
+                    loopback_counter <= loopback_counter - 32;
+                    do_op_loopback <= 1'b1;
+                end
             end
+            //loopback_counter <= loopback_counter + 1;
+            //if(loopback_counter == 199) begin
+            //    loopback_counter <= 0;
+            //    do_op_loopback <= 1'b1;
+            //end else begin
+            //    do_op_loopback <= 1'b0;
+            //end
         end
     end
 
@@ -480,7 +491,7 @@ module mrr_loopback_bpk
             ST_WAIT_TURNAROUND: begin
                 tx_en = ~tx_disable;
                 mrr_cycle_counter_incr = do_op_loopback;
-                if(mrr_cycle_counter_int_part == wait_step) begin
+                if(mrr_cycle_counter_loopback_part == wait_step) begin
                     mrr_cycle_counter_rst_int_part = 1'b1;
                     next_state = ST_TX;
                 end
@@ -492,9 +503,9 @@ module mrr_loopback_bpk
                 tx_en = ~tx_disable;
                 detector_reset = 1'b1;
                 mrr_cycle_counter_incr = do_op_loopback;
-                mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_int_part == 4);
-                tx_bit_ctr_incr = (mrr_cycle_counter_int_part == 4);
-                o_tkeep = (tx_disable) ? 1'b0 : (cur_bit) ? (mrr_cycle_counter_int_part <= 1) : (mrr_cycle_counter_int_part >= 2);
+                mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_loopback_part == 4);
+                tx_bit_ctr_incr = (mrr_cycle_counter_loopback_part == 4);
+                o_tkeep = (tx_disable) ? 1'b0 : (cur_bit) ? (mrr_cycle_counter_loopback_part <= 1) : (mrr_cycle_counter_loopback_part >= 2);
                 if(tx_bit_ctr == 32) begin
                     next_state = ST_SELF_TRIGGER_WAIT;
                 end 
