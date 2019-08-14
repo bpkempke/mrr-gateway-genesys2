@@ -36,6 +36,7 @@ SECONDARY_FFT_MAX_LEN_LOG2 = 9
 RECHARGE_CYCLES = 4#32
 SYMBOL_CYCLES = 4
 
+MAX_BITS_LOG2 = 8
 SFO_CTR_LEN_LOG2 = 10
 SFO_CTR_INCR = 1
 JITTER_INCR = 10
@@ -72,6 +73,7 @@ FFT_HIST_LEN_DECIM_LOG2 = PRIMARY_FFT_LEN_DECIM_LOG2 + SECONDARY_FFT_LEN_LOG2
 if SECONDARY_FFT_LEN_LOG2 < 8:
     print("ERROR: Secondary FFT length must by 2^8 or greater to ensure adequate correlation output offload time")
 
+MAX_BITS = 2**MAX_BITS_LOG2
 SFO_CTR_LEN = 2**SFO_CTR_LEN_LOG2
 SKIRT_WIDTH = 2**SKIRT_WIDTH_LOG2
 OVERSAMPLING_RATIO = 2**OVERSAMPLING_RATIO_LOG2
@@ -131,6 +133,8 @@ with open('loopback_params.hpp','w') as f:
     f.write('}')
 
 with open('mrr_params.vh','w') as f:
+    f.write('localparam MAX_BITS = {};\n'.format(MAX_BITS))
+    f.write('localparam MAX_BITS_LOG2 = {};\n'.format(MAX_BITS_LOG2))
     f.write('localparam SFO_CTR_LEN = {};\n'.format(SFO_CTR_LEN))
     f.write('localparam SFO_CTR_LEN_LOG2 = {};\n'.format(SFO_CTR_LEN_LOG2))
     f.write('localparam SFO_CTR_INCR = {};\n'.format(SFO_CTR_INCR))

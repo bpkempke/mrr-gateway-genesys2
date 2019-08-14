@@ -5,13 +5,15 @@ module mrr_loopback_bpk
     parameter CWIDTH = 32,
     parameter ZWIDTH = 24,
     parameter PN_SEQ = 15'b000100110101111
-)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, setting_primary_fft_len_log2, tx_en);
+)(clk, rst, tx_disable, tx_chipid, tx_gate_bit_enable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, setting_primary_fft_len_log2, tx_en);
 
     `include "mrr_params.vh"
 
     input clk; 
     input rst;
     input tx_disable; 
+    input tx_chipid; 
+    input tx_gate_bit_enable; 
     input[15:0] wait_step;
     input[31:0] tx_word; 
     input[7:0] num_payload_bits;
@@ -157,11 +159,18 @@ module mrr_loopback_bpk
     reg [ESAMP_WIDTH-1:0] peak_val;
     reg [19:0] peak_idx, peak_idx_end;
 
-    wire cur_bit = tx_word[tx_bit_ctr];
+    reg [MAX_BITS-1:0] decoded_bits;
 
-    reg pn_correlation_reset_accumulators;
-    reg pn_correlation_update_zero_flag;
-    reg pn_correlation_update_one_flag;
+    //TODO: Determine which bit contains tx_gate_bit
+    wire tx_gate_bit = decoded_bits[101];
+
+    //TODO: Determine which bits contain the chipid
+    wire [31:0] tx_word_mux = (tx_chipid) ? {tx_word[15:0], decoded_bits[100-:16]} : tx_word;
+    wire cur_bit = tx_word_mux[tx_bit_ctr];
+
+    reg reset_accumulators;
+    reg update_zero_accum;
+    reg update_one_accum;
     reg pn_correlation_finished_flag;
     reg pn_correlation_reset;
     reg [PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2-1:0] pn_correlation_write_addr;
@@ -232,6 +241,7 @@ module mrr_loopback_bpk
             pps_trigger <= 1'b0;
             loopback_counter <= 0;
             do_op_loopback <= 0;
+            decoded_bits <= 0;
         end else begin
             state <= next_state;
             mrr_cycle_counter_last <= mrr_cycle_counter_int_part;
@@ -361,13 +371,14 @@ module mrr_loopback_bpk
 
             if(pn_correlation_reset) begin
                 pn_correlation_write_addr <= 0;
-            end else if(pn_correlation_reset_accumulators) begin
+            end else if(reset_accumulators) begin
                 zero_accum <= 0;
                 one_accum <= 0;
+                decoded_bits <= {(one_accum > zero_accum) ? 1'b1 : 1'b0, decoded_bits[MAX_BITS-1:1]};
                 pn_correlation_write_addr <= pn_correlation_write_addr + 1;
-            end else if(pn_correlation_update_zero_flag) begin
+            end else if(update_zero_accum) begin
                 zero_accum <= zero_accum + accum;
-            end else if(pn_correlation_update_one_flag) begin
+            end else if(update_one_accum) begin
                 one_accum <= one_accum + accum;
             end
 
@@ -414,9 +425,9 @@ module mrr_loopback_bpk
         tx_en = 1'b0;
         peak_search_en = 1'b0;
         peak_search_update_timing = 1'b0;
-        pn_correlation_reset_accumulators = 1'b0;
-        pn_correlation_update_zero_flag = 1'b0;
-        pn_correlation_update_one_flag = 1'b0;
+        reset_accumulators = 1'b0;
+        update_zero_accum = 1'b0;
+        update_one_accum = 1'b0;
         pn_correlation_finished_flag = 1'b0;
         pn_correlation_reset = 1'b0;
         currently_decoding = 1'b1;
@@ -458,9 +469,9 @@ module mrr_loopback_bpk
 	        // However, it is up to this block to synchronize to the following
 	        // PN code (15'b000100110101111).  Do this correlation by summing
 	        // difference-based measurements between the zero- and one-chips.
-                pn_correlation_update_zero_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3 || mrr_cycle_counter_int_part == 4);
-                pn_correlation_update_one_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 5 || mrr_cycle_counter_int_part == 6);
-                pn_correlation_reset_accumulators = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 7);
+                update_zero_accum = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3 || mrr_cycle_counter_int_part == 4);
+                update_one_accum = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 5 || mrr_cycle_counter_int_part == 6);
+                reset_accumulators = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 7);
                 pn_correlation_finished_flag = (mrr_cycle_counter_int_part == recharge_len+1) & (payload_bit_ctr == (PN_SEQ_LEN + SFO_SEQ_LEN));
 
                 accum_rst = mrr_cycle_counter_changed;
@@ -489,7 +500,7 @@ module mrr_loopback_bpk
             end
 
             ST_WAIT_TURNAROUND: begin
-                tx_en = ~tx_disable;
+                tx_en = (~tx_disable) & ((~tx_gate_bit_enable) | tx_gate_bit);
                 mrr_cycle_counter_incr = do_op_loopback;
                 if(mrr_cycle_counter_loopback_part == wait_step) begin
                     mrr_cycle_counter_rst_int_part = 1'b1;
@@ -556,7 +567,7 @@ module mrr_loopback_bpk
         //Port A (written to by decoding logic)
         .clka(clk),
         .ena(1'b1),
-        .wea(pn_correlation_reset_accumulators),
+        .wea(reset_accumulators),
         .addra(pn_correlation_write_addr),
         .dia((zero_accum > one_accum) ? 1'b1 : 1'b0),//zero_accum_padded-one_accum_padded),
         .doa(),

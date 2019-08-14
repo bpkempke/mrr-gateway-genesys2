@@ -1241,6 +1241,8 @@ module axi_mrr_gateway #(
   localparam SR_RECORD_LEN = 165;
   localparam SR_CONTROL = 166;
   localparam SR_FILTERBOARD = 167;
+  localparam SR_TX_CHIPID = 168;
+  localparam SR_TX_GATE_BIT_ENABLE = 169;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1271,6 +1273,22 @@ module axi_mrr_gateway #(
   sr_tx_disable (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(tx_disable), .changed());
+
+ wire tx_chipid;
+
+  setting_reg #(
+    .my_addr(SR_TX_CHIPID), .awidth(8), .width(1), .at_reset(0))
+  sr_tx_chipid (
+    .clk(ce_clk), .rst(ce_rst),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(tx_chipid), .changed());
+
+ wire tx_gate_bit_enable;
+
+  setting_reg #(
+    .my_addr(SR_TX_GATE_BIT_ENABLE), .awidth(8), .width(1), .at_reset(0))
+  sr_tx_gate_bit_enable (
+    .clk(ce_clk), .rst(ce_rst),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(tx_gate_bit_enable), .changed());
 
  wire [15:0] wait_step;
 
@@ -1657,6 +1675,8 @@ module axi_mrr_gateway #(
         .o_corr_tlast(out_corr_tlast),
         .o_corr_tready(out_corr_tready),
 	.tx_disable(tx_disable),
+	.tx_chipid(tx_chipid),
+	.tx_gate_bit_enable(tx_gate_bit_enable),
         .num_payload_bits(num_payload_bits),
         .max_jitter(max_jitter),
         .recharge_len(recharge_len),

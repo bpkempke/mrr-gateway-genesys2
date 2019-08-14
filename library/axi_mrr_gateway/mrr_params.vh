@@ -1,3 +1,5 @@
+localparam MAX_BITS = 256;
+localparam MAX_BITS_LOG2 = 8;
 localparam SFO_CTR_LEN = 1024;
 localparam SFO_CTR_LEN_LOG2 = 10;
 localparam SFO_CTR_INCR = 1;

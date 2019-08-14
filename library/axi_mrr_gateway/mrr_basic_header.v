@@ -62,6 +62,8 @@ o_corr_tvalid,
 o_corr_tlast,
 o_corr_tready,
 tx_disable,
+tx_chipid,
+tx_gate_bit_enable,
 num_payload_bits,
 max_jitter,
 recharge_len,
@@ -139,6 +141,8 @@ cfo_search_debug
     output o_corr_tlast;
     input o_corr_tready;
     input tx_disable;
+    input tx_chipid;
+    input tx_gate_bit_enable;
     input [7:0] num_payload_bits;
     input [7:0] max_jitter;
     input [14:0] recharge_len;
@@ -299,6 +303,8 @@ cfo_search_debug
                 .setting_primary_fft_len(setting_primary_fft_len),
                 .setting_primary_fft_len_log2(setting_primary_fft_len_log2),
                 .tx_disable(tx_disable),
+                .tx_chipid(tx_chipid),
+                .tx_gate_bit_enable(tx_gate_bit_enable),
                 .wait_step(wait_step),
                 .tx_word(tx_word),
                 .num_payload_bits(num_payload_bits),
