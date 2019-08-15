@@ -162,10 +162,10 @@ module mrr_loopback_bpk
     reg [MAX_BITS-1:0] decoded_bits;
 
     //TODO: Determine which bit contains tx_gate_bit
-    wire tx_gate_bit = decoded_bits[101];
+    wire tx_gate_bit = decoded_bits[MAX_BITS-1-47];
 
     //TODO: Determine which bits contain the chipid
-    wire [31:0] tx_word_mux = (tx_chipid) ? {tx_word[15:0], decoded_bits[100-:16]} : tx_word;
+    wire [31:0] tx_word_mux = (tx_chipid) ? {tx_word[15:0], decoded_bits[MAX_BITS-1-48-:16]} : tx_word;
     wire cur_bit = tx_word_mux[tx_bit_ctr];
 
     reg reset_accumulators;
