@@ -511,7 +511,7 @@ module mrr_loopback_bpk
 	    //Then transmit the packet, one bit at a time.  Transition back to
 	    // a waiting state after all 32 bits have been transmitted to MRR
             ST_TX: begin
-                tx_en = ~tx_disable;
+                tx_en = (~tx_disable) & ((~tx_gate_bit_enable) | tx_gate_bit);
                 detector_reset = 1'b1;
                 mrr_cycle_counter_incr = do_op_loopback;
                 mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_loopback_part == 4);
