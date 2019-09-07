@@ -599,7 +599,8 @@ module axi_mrr_gateway #(
   assign out_tready = 1'b1;
 
   wire tx_en;
-  wire txnrx_request = tx_en;
+  reg tx_en_reg;
+  wire txnrx_request = tx_en_reg;
   wire txnrx_request_sync;
   wire [31:0] out_tdata_sync;
   reg [31:0] out_tdata_presync_reg;
@@ -609,6 +610,7 @@ module axi_mrr_gateway #(
 
   always @(posedge ce_clk) begin
     out_tdata_presync_reg <= out_tdata_presync;
+    tx_en_reg <= tx_en;
   end
 
   assign dac_data_i0 = (bypass) ? out_dac_data_i0 : out_tdata_sync[15:0];
