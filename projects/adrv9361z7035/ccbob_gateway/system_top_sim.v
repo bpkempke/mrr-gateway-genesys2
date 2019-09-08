@@ -172,8 +172,8 @@ module sim_top;
 
   always begin
     rx_clk = 1'b1;
-    #12.5 rx_clk = 1'b0;
-    #12.5;
+    #17 rx_clk = 1'b0;
+    #17;
   end
 
 endmodule

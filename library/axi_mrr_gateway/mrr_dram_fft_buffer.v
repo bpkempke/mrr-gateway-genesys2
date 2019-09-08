@@ -643,17 +643,17 @@ debug4
       .occupied()
    );
 
-   reg [63:0] i_tdata_input_reg;
+   reg [31:0] i_tdata_input_reg;
    always @(posedge dram_clk) begin
        if(dram_reset) begin
            i_tdata_pingpong <= 1'b0;
-           i_tdata_input_reg <= 64'd0;
+           i_tdata_input_reg <= 32'd0;
        end else begin
            if(write_ctrl_valid & write_ctrl_ready) begin
                i_tdata_pingpong <= 1'b0;
            end else if(i_tready_i4 & i_tvalid_i4) begin
                i_tdata_pingpong <= ~i_tdata_pingpong;
-               i_tdata_input_reg <= {i_tdata_input_reg[31:0], i_tdata_i4[31:0]};
+               i_tdata_input_reg <= i_tdata_i4[31:0];
            end
        end
    end
@@ -663,7 +663,7 @@ debug4
       .reset(dram_reset), 
       .clear(clear),
       //
-      .i_tdata(i_tdata_input_reg), 
+      .i_tdata({i_tdata_input_reg, i_tdata_i4[31:0]}), 
       .i_tvalid(i_tvalid_i4 & i_tdata_pingpong), 
       .i_tready(i_tready_i4),
       //
@@ -726,7 +726,7 @@ debug4
       .reset(dram_reset), 
       .clear(clear | clear_output_fifos),
       //
-      .i_tdata({32'd0, (o_tdata_pingpong) ? o_tdata_output[63:32] : o_tdata_output[31:0]}), 
+      .i_tdata({32'd0, (o_tdata_pingpong) ? o_tdata_output[31:0] : o_tdata_output[63:32]}), 
       .i_tvalid(o_tvalid_output), 
       .i_tready(o_tready_output),
       //
@@ -1171,10 +1171,10 @@ debug4
          // This is important as the next time it asserts we know that a read response was receieved.
          OUTPUT4: begin
             read_ctrl_valid <= 1'b0;
-            if (!read_ctrl_ready)
-               output_state <= OUTPUT5; // Move on
-            else
-               output_state <= OUTPUT4; // Wait for deassert
+            //if (!read_ctrl_ready)
+            //   output_state <= OUTPUT5; // Move on
+            //else
+            output_state <= OUTPUT5; // Wait for deassert
          end   
          //
          // OUTPUT5.
@@ -1363,6 +1363,7 @@ debug4
       //
       // DMA interface for Read
       //
+      .read_space(space_output), 
       .read_addr({5'b00110, read_addr[AWIDTH-3:1]}),       // Byte address for start of read transaction (should be 64bit alligned)
       .read_count({1'b0,read_count[7:1]}),       // Count of 64bit words to read.
       .read_ctrl_valid(read_ctrl_valid),
