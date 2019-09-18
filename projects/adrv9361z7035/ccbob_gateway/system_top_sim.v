@@ -157,7 +157,7 @@ module sim_top;
   end
 
   always @(posedge rx_frame) begin
-    rx_data <= rx_data + 1;
+    rx_data <= $urandom;
   end
 
   always @(posedge rx_clk) begin

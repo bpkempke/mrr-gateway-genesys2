@@ -541,6 +541,7 @@ module axi_mrr_gateway #(
   synchronizer #(.INITIAL_VAL(1'b1)) ce_rst_adc_sync_inst (.clk(adc_clk), .rst(0), .in(ce_rst), .out(ce_rst_sync));
   wire record_en;
   wire clear_sync;
+  reg [7:0] adc_fifo_wait_ctr;
   always @(posedge adc_clk) begin
     if(ce_rst_sync | clear_sync) begin
       input_sample_counter <= 0;
@@ -551,27 +552,32 @@ module axi_mrr_gateway #(
       adc_i_in_latched_last <= 0;
       adc_q_in_latched_last <= 0;
       adc_ping_pong <= 1'b0;
+      adc_fifo_wait_ctr <= 0;
     end else begin
-      if(~enable_sync) begin
-        adc_valid <= 1'b0;
+      if(adc_fifo_wait_ctr < 8'd20) begin
+        adc_fifo_wait_ctr <= adc_fifo_wait_ctr + 1;
       end else begin
-        if(adc_enable_i0 & adc_valid_i0 & enable_sync) begin
-          if(input_sample_counter == setting_primary_fft_len_sync-1)
-            input_sample_counter <= 0;
-          else
-            input_sample_counter <= input_sample_counter + 1;
-          adc_i_in_latched <= adc_data_i0;
-          adc_i_in_latched_last <= adc_i_in_latched;
-          adc_ping_pong <= ~adc_ping_pong;
-          adc_valid <= (record_en_sync) ? adc_ping_pong : 1'b1;
-          adc_last <= (input_sample_counter == setting_primary_fft_len_sync-1);
-        end else begin
+        if(~enable_sync) begin
           adc_valid <= 1'b0;
-        end
+        end else begin
+          if(adc_enable_i0 & adc_valid_i0 & enable_sync) begin
+            if(input_sample_counter == setting_primary_fft_len_sync-1)
+              input_sample_counter <= 0;
+            else
+              input_sample_counter <= input_sample_counter + 1;
+            adc_i_in_latched <= adc_data_i0;
+            adc_i_in_latched_last <= adc_i_in_latched;
+            adc_ping_pong <= ~adc_ping_pong;
+            adc_valid <= (record_en_sync) ? adc_ping_pong : 1'b1;
+            adc_last <= (input_sample_counter == setting_primary_fft_len_sync-1);
+          end else begin
+            adc_valid <= 1'b0;
+          end
 
-        if(adc_enable_q0 & adc_valid_q0 & enable_sync) begin
-          adc_q_in_latched <= adc_data_q0;
-          adc_q_in_latched_last <= adc_q_in_latched;
+          if(adc_enable_q0 & adc_valid_q0 & enable_sync) begin
+            adc_q_in_latched <= adc_data_q0;
+            adc_q_in_latched_last <= adc_q_in_latched;
+          end
         end
       end
     end

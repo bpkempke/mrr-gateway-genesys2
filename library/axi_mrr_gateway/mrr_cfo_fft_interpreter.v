@@ -225,7 +225,7 @@ wire [NUM_CORRELATORS_LOG2-1:0] max_corr_sfo_idx;
 wire [CORR_METADATA_WIDTH-1:0] max_metadata_rb;
 reg [NUM_CORRELATORS_LOG2-1:0] highest_corr_sfo_idx;
 reg [CORR_METADATA_WIDTH-1:0] highest_corr_metadata;
-reg [NUM_CORRELATORS_LOG2-1:0] corr_sfo_max, corr_sfo_max_temp;
+reg [NUM_CORRELATORS_LOG2-1:0] corr_sfo_max, corr_sfo_temp;
 ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2+CORR_METADATA_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) max_corr_ram (
     .clka(clk),
     .ena(1'b1),
@@ -278,12 +278,13 @@ assign o_corr_tlast = 1'b1;//(cfo_index == setting_primary_fft_len-1);
 wire corr_valid_temp = (correlator_shift_out & (correlator_shift_phase == CORR_SHIFT_PHASE_WRITE));
 wire corr_last_temp = (correlator_shift_counter == NUM_CORRELATORS-1);
 wire [31:0] corr_max_temp = (cur_corr > corr_temp) ? cur_corr : corr_temp;
+wire [NUM_CORRELATORS_LOG2-1:0] corr_sfo_max_temp = (cur_corr > corr_temp) ? correlator_shift_counter : corr_sfo_temp;
 wire [CORR_METADATA_WIDTH-1:0] metadata_max_temp = (cur_corr > corr_temp) ? cur_metadata : metadata_temp;
 always @(posedge clk) begin
     if(rst) begin
         corr_max <= 0;
         corr_sfo_max <= 0;
-        corr_sfo_max_temp <= 0;
+        corr_sfo_temp <= 0;
         corr_temp <= 0;
         corr_valid <= 1'b0;
         metadata_temp <= 0;
@@ -291,12 +292,13 @@ always @(posedge clk) begin
         corr_valid <= 1'b0;
         if(corr_valid_temp) begin
             corr_temp <= corr_max_temp;
+            corr_sfo_temp <= corr_sfo_max_temp;
             metadata_temp <= metadata_max_temp;
             if(corr_last_temp) begin
                 metadata_max <= metadata_temp;
                 corr_max <= corr_temp;
-                corr_sfo_max <= corr_sfo_max_temp;
-                corr_sfo_max_temp <= 0;
+                corr_sfo_max <= corr_sfo_temp;
+                corr_sfo_temp <= 0;
                 corr_temp <= 0;
                 metadata_temp <= 0;
                 corr_valid <= 1'b1;
@@ -690,7 +692,7 @@ always @(posedge clk) begin
     end
 end
 
-wire all_pathways_occupied = ((currently_decoding & global_search_done) == {{NUM_DECODE_PATHWAYS}{1'b1}});
+wire all_pathways_occupied = ((recently_assigned | (currently_decoding & global_search_done)) == {{NUM_DECODE_PATHWAYS}{1'b1}});
 
 //Logic to generate signal indicating whether there are additional local
 // searches left for each decode pathway
