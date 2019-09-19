@@ -380,7 +380,7 @@ debug4
    reg [2:0]   input_state;
    wire [15:0]      space_input, occupied_input;
    reg [15:0]       space_input_reg;
-   wire        input_timeout_triggered = ({occupied_input,1'b0} >= (1 << setting_input_frame_size_log2_sync));
+   wire        input_timeout_triggered = (occupied_input >= (1 << setting_input_frame_size_log2_sync));
    reg         input_timeout_reset;
    reg [8:0]   input_timeout_count;
    reg [AWIDTH-1:0]  write_addr, last_write_addr;
@@ -549,9 +549,6 @@ debug4
    wire [DWIDTH-1:0] i_tdata_i3;
    wire             i_tvalid_i3, i_tready_i3;
 
-   wire [DWIDTH-1:0] i_tdata_i4;
-   wire             i_tvalid_i4, i_tready_i4;
-
    wire [DWIDTH-1:0] i_tdata_input;
    wire             i_tvalid_input, i_tready_input;
    reg              supress_reads;
@@ -625,8 +622,7 @@ debug4
       .o_tready(i_tready_i3)
    );
 
-   reg i_tdata_pingpong;
-   axi_fifo #(.WIDTH(DWIDTH),.SIZE(10)) fifo_i1 (
+   axi_fifo #(.WIDTH(DWIDTH),.SIZE(12)) fifo_i1 (
       .clk(dram_clk), 
       .reset(dram_reset), 
       .clear(clear),
@@ -634,38 +630,6 @@ debug4
       .i_tdata(i_tdata_i3), 
       .i_tvalid(i_tvalid_i3), 
       .i_tready(i_tready_i3),
-      //
-      .o_tdata(i_tdata_i4), 
-      .o_tvalid(i_tvalid_i4), 
-      .o_tready(i_tready_i4),
-      //
-      .space(), 
-      .occupied()
-   );
-
-   reg [31:0] i_tdata_input_reg;
-   always @(posedge dram_clk) begin
-       if(dram_reset) begin
-           i_tdata_pingpong <= 1'b0;
-           i_tdata_input_reg <= 32'd0;
-       end else begin
-           if(write_ctrl_valid & write_ctrl_ready) begin
-               i_tdata_pingpong <= 1'b0;
-           end else if(i_tready_i4 & i_tvalid_i4) begin
-               i_tdata_pingpong <= ~i_tdata_pingpong;
-               i_tdata_input_reg <= i_tdata_i4[31:0];
-           end
-       end
-   end
-
-   axi_fifo #(.WIDTH(DWIDTH),.SIZE(12)) fifo_i3 (
-      .clk(dram_clk), 
-      .reset(dram_reset), 
-      .clear(clear),
-      //
-      .i_tdata({i_tdata_input_reg, i_tdata_i4[31:0]}), 
-      .i_tvalid(i_tvalid_i4 & i_tdata_pingpong), 
-      .i_tready(i_tready_i4),
       //
       .o_tdata(i_tdata_input), 
       .o_tvalid(i_tvalid_input), 
@@ -720,13 +684,12 @@ debug4
 
    wire             checksum_error;
 
-   reg o_tdata_pingpong;
    axi_fifo #(.WIDTH(DWIDTH),.SIZE(10)) fifo_i2 (
       .clk(dram_clk), 
       .reset(dram_reset), 
       .clear(clear | clear_output_fifos),
       //
-      .i_tdata({32'd0, (o_tdata_pingpong) ? o_tdata_output[31:0] : o_tdata_output[63:32]}), 
+      .i_tdata(o_tdata_output), 
       .i_tvalid(o_tvalid_output), 
       .i_tready(o_tready_output),
       //
@@ -737,18 +700,6 @@ debug4
       .space(space_output), 
       .occupied(occupied_output)
    );
-
-   always @(posedge dram_clk) begin
-       if(dram_reset) begin
-           o_tdata_pingpong <= 1'b0;
-       end else begin
-           if(read_ctrl_valid & read_ctrl_ready) begin
-               o_tdata_pingpong <= 1'b0;
-           end else if(o_tready_output & o_tvalid_output) begin
-               o_tdata_pingpong <= ~o_tdata_pingpong;
-           end
-       end
-   end
 
    // Place FLops straight after SRAM read access for timing.
    axi_fifo_flop2 #(.WIDTH(DWIDTH)) output_pipe_i0
@@ -1079,7 +1030,7 @@ debug4
             clear_output_fifos <= 1'b0;
             if (sync_req_sync_d[3] & sync_req_sync_d[4]) begin
                output_state <= OUTPUT_SYNC;
-            end else if (space_output > 255) begin // Space in the output FIFO.
+            end else if ((space_output > 255) & (~full_out)) begin // Space in the output FIFO.
                if (occupied > 255) begin // 64 or more entrys in main FIFO
                   output_state <= OUTPUT1;
                   output_timeout_reset <= 1'b1;
@@ -1171,10 +1122,10 @@ debug4
          // This is important as the next time it asserts we know that a read response was receieved.
          OUTPUT4: begin
             read_ctrl_valid <= 1'b0;
-            //if (!read_ctrl_ready)
-            //   output_state <= OUTPUT5; // Move on
-            //else
-            output_state <= OUTPUT5; // Wait for deassert
+            if (!read_ctrl_ready)
+               output_state <= OUTPUT5; // Move on
+            else
+               output_state <= OUTPUT4; // Wait for deassert
          end   
          //
          // OUTPUT5.
@@ -1353,24 +1304,23 @@ debug4
       //
       // DMA interface for Write transaction
       //
-      .write_addr({5'b00110, write_addr_reordered[AWIDTH-3:1]}),       // Byte address for start of write transaction (should be 64bit alligned)
-      .write_count({1'b0,write_count[7:1]}),       // Count of 64bit words to write.
+      .write_addr({4'b0011, write_addr_reordered[AWIDTH-3:0]}),       // Byte address for start of write transaction (should be 64bit alligned)
+      .write_count(write_count),       // Count of 64bit words to write.
       .write_ctrl_valid(write_ctrl_valid),
       .write_ctrl_ready(write_ctrl_ready),
       .write_data(i_tdata_input),
-      .write_data_valid(i_tvalid_input),// & i_tdata_pingpong),
+      .write_data_valid(i_tvalid_input),
       .write_data_ready(i_tready_input),
       //
       // DMA interface for Read
       //
-      .read_space(space_output), 
-      .read_addr({5'b00110, read_addr[AWIDTH-3:1]}),       // Byte address for start of read transaction (should be 64bit alligned)
-      .read_count({1'b0,read_count[7:1]}),       // Count of 64bit words to read.
+      .read_addr({4'b0011, read_addr[AWIDTH-3:0]}),       // Byte address for start of read transaction (should be 64bit alligned)
+      .read_count(read_count),       // Count of 64bit words to read.
       .read_ctrl_valid(read_ctrl_valid),
       .read_ctrl_ready(read_ctrl_ready),
       .read_data(o_tdata_output),
       .read_data_valid(o_tvalid_output),
-      .read_data_ready(o_tready_output & o_tdata_pingpong),
+      .read_data_ready(o_tready_output),
       //
       // Debug
       //

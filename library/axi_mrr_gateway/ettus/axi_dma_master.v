@@ -83,11 +83,10 @@ module axi_dma_master
    //
    // DMA interface for Read
    //
-   input [15:0] read_space,
    input [31:0] read_addr,       // Byte address for start of read transaction (should be 64bit alligned)
    input [7:0] read_count,       // Count of 64bit words to read.
    input read_ctrl_valid,
-   output read_ctrl_ready,
+   output reg read_ctrl_ready,
    output [63:0] read_data,
    output read_data_valid,
    input read_data_ready,
@@ -98,8 +97,6 @@ module axi_dma_master
    
    );
  
-
-   reg [15:0] pending_read_transfers;
    
    localparam AW_IDLE = 0;
    localparam WAIT_AWREADY = 1;
@@ -362,35 +359,28 @@ module axi_dma_master
    assign m_axi_arregion = 4'h0;
    assign m_axi_aruser = 1'b0;
 
-   assign read_ctrl_ready = (read_addr_state == AR_IDLE) && ((pending_read_transfers+256) < read_space);
 
    //
    // AXI Read address state machine
    //
    always @(posedge aclk)
      if (areset) begin
+	read_ctrl_ready <= 1'b0;
 	read_addr_state <= AR_IDLE;
 	m_axi_araddr[31:0] <= 32'h0;
 	m_axi_arlen[7:0] <= 8'h0;
 	m_axi_arvalid <= 1'b0;
-        pending_read_transfers <= 0;
-     end else begin
-       if(read_data_valid & read_data_ready) begin
-           pending_read_transfers <= pending_read_transfers - 1;
-       end
+     end else
        case (read_addr_state)
 	 //
 	 // AR_IDLE
 	 // We are ready to accept a new read transaction.
 	 //
 	 AR_IDLE: begin
+	    // Premptively accept new read transaction since we are idle.
+	    read_ctrl_ready <= 1'b1;
 	    // If we are offered a new transaction then.....
-	    if (read_ctrl_valid && read_ctrl_ready) begin
-               if(read_data_valid && read_data_ready) begin
-                   pending_read_transfers <= pending_read_transfers + read_count;
-               end else begin
-                   pending_read_transfers <= pending_read_transfers + read_count + 1;
-               end
+	    if (read_ctrl_valid) begin
 	       // Drive all the relevent AXI4 read address channel signals next cycle.
 	       m_axi_araddr[31:0] <= read_addr[31:0];
 	       m_axi_arlen[7:0] <= {read_count};
@@ -411,9 +401,9 @@ module axi_dma_master
 	 // Waiting for AXI4 slave to accept new read transaction.
 	 //
 	 WAIT_ARREADY: begin
+	    read_ctrl_ready <= 1'b0;
 	    // If the AXI4 read channel is accepting the transaction...
 	    if (m_axi_arready == 1'b1) begin
-	       m_axi_arvalid <= 1'b0;
 	       // ...go to looking for the transaction to complete...
 	       read_addr_state <= WAIT_READ_DONE;
 	        `DEBUG $display("READ TRANSACTION: ADDR: %x  LEN: %x @ time %d",m_axi_araddr[31:0],m_axi_arlen[7:0],$time);	       
@@ -428,31 +418,32 @@ module axi_dma_master
 	 // Ignoring ID tag for the moment
 	 //
 	 WAIT_READ_DONE: begin
+	    read_ctrl_ready <= 1'b0;
 	    m_axi_arvalid <= 1'b0;
 	    // Wait for read transaction to complete
-	    //if (read_data_state == DR_IDLE) begin
-	    //     // ....it went well, we are ready to start something new.
-	    //   read_addr_state <= AR_IDLE;
-	    //   read_ctrl_ready <= 1'b1; // Ready to run again as soon as we hit idle.
-	    //if (read_data_state == DR_ERROR) begin
-	    //     // ....things got ugly, retreat to an error stat and wait for intervention.
-	    //   read_addr_state <= AR_ERROR;
-	    //end else begin
+	    if (read_data_state == DR_IDLE) begin
+		 // ....it went well, we are ready to start something new.
 	       read_addr_state <= AR_IDLE;
-	    //end
+	       read_ctrl_ready <= 1'b1; // Ready to run again as soon as we hit idle.
+	    end else if (read_data_state == DR_ERROR) begin
+		 // ....things got ugly, retreat to an error stat and wait for intervention.
+	       read_addr_state <= AR_ERROR;
+	    end else begin
+	       read_addr_state <= WAIT_READ_DONE;
+	    end
 	 end // case: WAIT_BVALID
 	 //
 	 // AR_ERROR
 	 // Something bad happened, going to need external intervention to restore a safe state.
 	 //
 	 AR_ERROR: begin
+	    read_ctrl_ready <= 1'b0;
 	    read_addr_state <= AR_ERROR;
 	    m_axi_araddr[31:0] <= 32'h0;
 	    m_axi_arlen[7:0] <= 8'h0;
 	    m_axi_arvalid <= 1'b0;
 	 end
        endcase // case(read_addr_state)
-     end
 
    /////////////////////////////////////////////////////////////////////////////////
    //
@@ -542,10 +533,8 @@ module axi_dma_master
    
 	       
    assign read_data = m_axi_rdata;
-   assign m_axi_rready = (read_data_ready || clear);
-   assign read_data_valid = m_axi_rvalid;
-   //assign m_axi_rready = enable_data_read && (read_data_ready || clear);
-   //assign read_data_valid = enable_data_read && m_axi_rvalid;
+   assign m_axi_rready = enable_data_read && (read_data_ready || clear);
+   assign read_data_valid = enable_data_read && m_axi_rvalid;
 			   
 endmodule // axi_dma_master
 

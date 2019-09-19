@@ -8,9 +8,9 @@ import numpy as np
 
 #SRR Testing
 #Files from Li:
-IDEAL_SFO_FREQ = 247.3e3
+#IDEAL_SFO_FREQ = 247.3e3
 #Encapsulated stack:
-#IDEAL_SFO_FREQ = 245.7e3
+IDEAL_SFO_FREQ = 245.7e3
 
 SAMPLING_RATE = 20e6
 

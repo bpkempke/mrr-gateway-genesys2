@@ -959,9 +959,8 @@ always @(posedge clk) begin
         if(correlation_search_reset) begin
             new_assignment_array <= 0;
             correlator_shift_phase <= CORR_SHIFT_PHASE_READ;
-        end
-        if(request_pathway_assignment) begin
-            new_assignment_array <= (new_assignment_array | (1 << occupied_idx));
+        end else begin
+            new_assignment_array <= new_assignment_array | store_pathway_assignment;
         end
         if(correlator_shift_out) begin
             if(correlator_shift_phase == CORR_SHIFT_PHASE_READ) begin
