@@ -143,7 +143,7 @@ module mrr_loopback_bpk
     assign o_decoded_tdata = (metadata_push_flag) ? cur_metadata_mux : {accum_count, accum};
 
     reg payload_bit_ctr_incr, payload_bit_ctr_rst;
-    reg [7:0] payload_bit_ctr;
+    reg [8:0] payload_bit_ctr;
 
     reg latch_scf;
 
@@ -165,7 +165,7 @@ module mrr_loopback_bpk
     reg pn_correlation_finished_flag;
     reg pn_correlation_reset;
     reg [PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2-1:0] pn_correlation_write_addr;
-    reg [PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2-1:0] pn_result_idx;
+    reg [SFO_SEQ_LEN_LOG2-1:0] pn_result_idx;
 
     reg [31:0] pps_counter;
     reg pps_trigger;
