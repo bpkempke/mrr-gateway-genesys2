@@ -2,8 +2,10 @@ module mrr_loopback_bpk
 #(
     parameter PACKET_INDEX = 10,
     parameter SPP = 64,
+    parameter CWIDTH = 32,
+    parameter ZWIDTH = 24,
     parameter PN_SEQ = 15'b000100110101111
-)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, tx_en);
+)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, setting_primary_fft_len_log2, tx_en);
 
     `include "mrr_params.vh"
 
@@ -45,6 +47,9 @@ module mrr_loopback_bpk
     output reg detector_reset;
 
     input [PRIMARY_FFT_MAX_LEN_LOG2:0] setting_primary_fft_len;
+    input [PRIMARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_primary_fft_len_log2;
+
+    output reg tx_en;
 
     output reg tx_en;
 
@@ -58,23 +63,69 @@ module mrr_loopback_bpk
 
     wire do_op = (i_replay_flag) ? i_tkeep : (i_tready & i_tvalid & i_tkeep);
 
-    assign o_tdata = {16'h7fff,16'h7fff};
+    reg [7:0] loopback_counter;
+    reg do_op_loopback;
+
+    //Keep CORDIC updated based on input frequency assignment
+    wire [CWIDTH-1:0] to_cordic_i = 32'h7FFF;
+    wire [CWIDTH-1:0] to_cordic_q = 32'd0;
+    wire [CWIDTH-1:0] i_cordic, q_cordic;
+    reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] z_counter;
+    m_cordic_z24 #(.bitwidth(CWIDTH)) inst_cordic(
+        .clock(clk),
+        .reset(rst),
+        .enable(1'b1),
+        .xi(to_cordic_i),
+        .yi(to_cordic_q),
+        .zi({{{{ZWIDTH-PRIMARY_FFT_MAX_LEN_LOG2}{1'b0}},z_counter} << (ZWIDTH-setting_primary_fft_len_log2)}),
+        .flag_in(1'b0),
+        .xo(i_cordic),
+        .yo(q_cordic),
+        .zo(),
+        .flag_out()
+    );
+
+    reg [2:0] z_counter_div;
+    always @(posedge clk) begin
+        if(rst) begin
+            z_counter <= 0;
+            z_counter_div <= 0;
+        end else begin
+            //For now, just a fixed per-clock-cycle 
+
+	    //TODO: This probably isn't ideal.  Should ideally be linked to
+	    //output sample rate, but that has to cross a clock domain which
+	    //can get things messy....
+            z_counter_div <= z_counter_div + 1;
+            if(z_counter_div == 3'd4) begin
+                z_counter_div <= 0;
+                z_counter <= z_counter + cfo_idx;
+            end
+        end
+    end
+
+    assign o_tdata = {q_cordic[15:0],i_cordic[15:0]};
     assign o_tvalid = i_tvalid;
     assign o_tlast = i_tlast;
     assign i_tready = o_tready;
 
-    reg [2:0] state, next_state;
+    reg [3:0] state, next_state;
     reg mrr_cycle_counter_incr, mrr_cycle_counter_rst, mrr_cycle_counter_rst_int_part;
     reg tx_bit_ctr_incr, tx_bit_ctr_rst;
-    reg [15+OVERSAMPLING_RATIO_LOG2:0] mrr_cycle_counter, mrr_cycle_counter_last;
-    wire [15:0] mrr_cycle_counter_int_part = mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2:OVERSAMPLING_RATIO_LOG2];
-    wire [OVERSAMPLING_RATIO_LOG2-1:0] mrr_cycle_counter_frac_part = mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2-1:0];
+    reg [SFO_CTR_LEN_LOG2:0] sfo_ctr;
+    reg [7+SFO_CTR_LEN_LOG2:0] jitter;
+    reg [15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2:0] mrr_cycle_counter, mrr_cycle_counter_last;
+    reg [15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2:0] sfo_counter_num, sfo_counter_denom;
+    wire [15:0] mrr_cycle_counter_int_part = mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16];
+    wire [15:0] mrr_cycle_counter_loopback_part = mrr_cycle_counter[13+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16];
+    wire [OVERSAMPLING_RATIO_LOG2-1:0] mrr_cycle_counter_frac_part = mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1-:OVERSAMPLING_RATIO_LOG2];
     reg [5:0] tx_bit_ctr;
 
     wire mrr_cycle_counter_changed = (mrr_cycle_counter_int_part != mrr_cycle_counter_last);
 
     //Accumulators for soft symbol output
-    reg [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2-1:0] accum, zero_accum;
+    reg [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2-1:0] accum;
+    reg [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] zero_accum, one_accum;
     reg [OVERSAMPLING_RATIO_LOG2:0] accum_count;
     reg [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2:0] jitter_max_accum, jitter_accum, jitter_accum_first_half, jitter_accum_second_half;
 
@@ -94,7 +145,7 @@ module mrr_loopback_bpk
     assign o_decoded_tdata = (metadata_push_flag) ? cur_metadata_mux : {accum_count, accum};
 
     reg payload_bit_ctr_incr, payload_bit_ctr_rst;
-    reg [7:0] payload_bit_ctr;
+    reg [8:0] payload_bit_ctr;
 
     reg latch_scf;
 
@@ -104,34 +155,63 @@ module mrr_loopback_bpk
     //Intended timing of data demodulation:
     // mrr_cycle=0,1: silent (
     reg peak_search_en, peak_search_update_timing, peak_search_update_timing_complete, peak_less_than_half;
+    //assign o_decoded_tdata = (metadata_push_flag) ? cur_metadata_mux : {peak_less_than_half,sfo_ctr,accum[19:0]};
     reg [ESAMP_WIDTH-1:0] peak_val;
     reg [19:0] peak_idx, peak_idx_end;
 
     wire cur_bit = tx_word[tx_bit_ctr];
 
+    reg pn_correlation_reset_accumulators;
     reg pn_correlation_update_zero_flag;
     reg pn_correlation_update_one_flag;
     reg pn_correlation_finished_flag;
     reg pn_correlation_reset;
     reg [PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2-1:0] pn_correlation_write_addr;
-    reg [PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2-1:0] pn_result_idx;
+    reg [SFO_SEQ_LEN_LOG2-1:0] pn_result_idx;
 
     reg [31:0] pps_counter;
     reg pps_trigger;
+
+    //Divider to calculate accurate SFO
+    wire [63:0] sfo_div_result;
+    reg [63:0] sfo_div_result_reg;
+    wire [SFO_CTR_LEN_LOG2:0] sfo_ctr_calc = sfo_div_result_reg[32-:SFO_CTR_LEN_LOG2+1];
+    wire sfo_div_result_valid;
+    divide_uint32 sfo_divide_inst (
+        .aclk(clk),
+        .aresetn(~rst),
+        .s_axis_divisor_tvalid(1'b1),
+        .s_axis_divisor_tready(),
+        .s_axis_divisor_tlast(1'b0),
+        .s_axis_divisor_tdata({{{32-16-OVERSAMPLING_RATIO_LOG2-SFO_CTR_LEN_LOG2}{1'b0}},sfo_counter_denom}),
+        .s_axis_dividend_tvalid(1'b1),
+        .s_axis_dividend_tready(),
+        .s_axis_dividend_tlast(1'b0),
+        .s_axis_dividend_tdata({{{32-16-OVERSAMPLING_RATIO_LOG2-SFO_CTR_LEN_LOG2}{1'b0}},sfo_counter_num}),
+        .m_axis_dout_tvalid(sfo_div_result_valid),
+        .m_axis_dout_tready(1'b1),
+        .m_axis_dout_tdata(sfo_div_result)
+    );
 
     localparam ST_READY = 0;
     localparam ST_WAIT = 1;
     localparam ST_WAIT_UNTIL_FIRST_BIT = 2;
     localparam ST_RX_PAYLOAD = 3;
-    localparam ST_WAIT_TURNAROUND = 4;
-    localparam ST_TX = 5;
-    localparam ST_SELF_TRIGGER_WAIT = 6;
-    localparam ST_SEND_METADATA = 7;
+    localparam ST_WAIT_JITTER = 4;
+    localparam ST_WAIT_TURNAROUND = 5;
+    localparam ST_TX = 6;
+    localparam ST_SELF_TRIGGER_WAIT = 7;
+    localparam ST_SEND_METADATA = 8;
 
     always @(posedge clk) begin
         if(rst) begin
             state <= ST_READY;
+            sfo_ctr <= 0;
+            jitter <= 0;
             mrr_cycle_counter <= 0;
+            sfo_counter_num <= 0;
+            sfo_counter_denom <= 0;
+            sfo_div_result_reg <= 0;
             mrr_cycle_counter_last <= 0;
             tx_bit_ctr <= 0;
             accum <= 0;
@@ -145,12 +225,15 @@ module mrr_loopback_bpk
             peak_search_update_timing_complete <= 1'b1;
             pn_correlation_write_addr <= 0;
             zero_accum <= 0;
+            one_accum <= 0;
             jitter_accum_first_half <= 0; 
             jitter_accum_second_half <= 0;
             jitter_max_accum <= 0;
             cur_metadata_idx <= 0;
             pps_counter <= 0;
             pps_trigger <= 1'b0;
+            loopback_counter <= 0;
+            do_op_loopback <= 0;
         end else begin
             state <= next_state;
             mrr_cycle_counter_last <= mrr_cycle_counter_int_part;
@@ -161,6 +244,10 @@ module mrr_loopback_bpk
             end else begin
                 pps_counter <= pps_counter + 1;
                 pps_trigger <= 1'b0;
+            end
+
+            if(sfo_div_result_valid) begin
+                sfo_div_result_reg <= sfo_div_result;
             end
 
             //This accumulator integrates the amount of energy (from CFO) experienced during each bit
@@ -182,7 +269,7 @@ module mrr_loopback_bpk
                 end
             end else if(jitter_accum_en) begin
                 jitter_accum <= jitter_accum + i_tdata;
-                if(mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2-1])
+                if(mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2+SFO_CTR_LEN_LOG2-1])
                     jitter_accum_second_half <= jitter_accum_second_half + i_tdata;
                 else
                     jitter_accum_first_half <= jitter_accum_first_half + i_tdata;
@@ -223,18 +310,47 @@ module mrr_loopback_bpk
             //mrr_cycle_counter counts the number of resampled MRR cycles which have elapsed since find_max triggered
             if(mrr_cycle_counter_rst) begin
                 mrr_cycle_counter <= 0;
+                sfo_counter_num <= 0;
+                sfo_counter_denom <= 0;
+                sfo_ctr <= {1'b1, {{SFO_CTR_LEN_LOG2}{1'b0}}};
+                jitter <= {max_jitter, {{SFO_CTR_LEN_LOG2}{1'b0}}};
             end else if(mrr_cycle_counter_rst_int_part) begin
-                mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2:OVERSAMPLING_RATIO_LOG2] <= 0;
+                mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16] <= 0;
             end else if(mrr_cycle_counter_incr) begin
-                mrr_cycle_counter <= mrr_cycle_counter + 1;
+                mrr_cycle_counter <= mrr_cycle_counter + sfo_ctr;
+                sfo_counter_num <= sfo_counter_num + sfo_ctr;
+                sfo_counter_denom <= sfo_counter_denom + sfo_ctr;
             end else if(peak_search_update_timing & ~peak_search_update_timing_complete) begin
                 jitter_max_accum <= 0;
                 peak_val <= 0;
                 peak_search_update_timing_complete <= 1'b1;
+
+		//Decrease allowable jitter and sfo frequency estimate once we
+		//  know we're actually tracking symbols...
+                if(payload_bit_ctr > SFO_SEQ_LEN+PN_SEQ_LEN) begin
+                    jitter <= {2'b0, max_jitter, {{SFO_CTR_LEN_LOG2-2}{1'b0}}};
+                    sfo_ctr <= sfo_ctr_calc;
+                end
+                //if(payload_bit_ctr > SFO_SEQ_LEN) begin
+                //    if(jitter >= JITTER_MIN+JITTER_INCR) begin
+                //        jitter <= jitter - JITTER_INCR;
+                //    end
+ 
+                //    if(peak_less_than_half) begin
+                //        sfo_ctr <= sfo_ctr + SFO_CTR_INCR;
+                //    end else begin
+                //        sfo_ctr <= sfo_ctr - SFO_CTR_INCR;
+                //    end
+                //end
+
                 if(peak_less_than_half) begin
-                    mrr_cycle_counter <= max_jitter;
+                    mrr_cycle_counter <= {16'd0,mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1:0]}+jitter;
+                    sfo_counter_denom <= sfo_counter_denom - jitter;
+                    //sfo_counter_num <= sfo_counter_num + jitter;
                 end else begin
-                    mrr_cycle_counter <= {{{OVERSAMPLING_RATIO_LOG2+8}{1'b1}},~max_jitter};
+                    mrr_cycle_counter <= {16'd0,mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1:0]}-jitter;
+                    sfo_counter_denom <= sfo_counter_denom + jitter;
+                    //sfo_counter_num <= sfo_counter_num - jitter;
                 end
             end
                 
@@ -247,11 +363,33 @@ module mrr_loopback_bpk
 
             if(pn_correlation_reset) begin
                 pn_correlation_write_addr <= 0;
-            end else if(pn_correlation_update_zero_flag) begin
-                zero_accum <= accum;
-            end else if(pn_correlation_update_one_flag) begin
+            end else if(pn_correlation_reset_accumulators) begin
+                zero_accum <= 0;
+                one_accum <= 0;
                 pn_correlation_write_addr <= pn_correlation_write_addr + 1;
+            end else if(pn_correlation_update_zero_flag) begin
+                zero_accum <= zero_accum + accum;
+            end else if(pn_correlation_update_one_flag) begin
+                one_accum <= one_accum + accum;
             end
+
+            do_op_loopback <= 1'b0;
+            if(do_op) begin
+                //TODO: Difference in timing between RX and loopback is a little janky...
+                loopback_counter <= loopback_counter + 25;
+            end else begin
+                if(loopback_counter >= 32) begin
+                    loopback_counter <= loopback_counter - 32;
+                    do_op_loopback <= 1'b1;
+                end
+            end
+            //loopback_counter <= loopback_counter + 1;
+            //if(loopback_counter == 199) begin
+            //    loopback_counter <= 0;
+            //    do_op_loopback <= 1'b1;
+            //end else begin
+            //    do_op_loopback <= 1'b0;
+            //end
         end
     end
 
@@ -278,6 +416,7 @@ module mrr_loopback_bpk
         tx_en = 1'b0;
         peak_search_en = 1'b0;
         peak_search_update_timing = 1'b0;
+        pn_correlation_reset_accumulators = 1'b0;
         pn_correlation_update_zero_flag = 1'b0;
         pn_correlation_update_one_flag = 1'b0;
         pn_correlation_finished_flag = 1'b0;
@@ -321,12 +460,13 @@ module mrr_loopback_bpk
 	        // However, it is up to this block to synchronize to the following
 	        // PN code (15'b000100110101111).  Do this correlation by summing
 	        // difference-based measurements between the zero- and one-chips.
-                pn_correlation_update_zero_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 1);//TODO: Needs to include the next index as well... | mrr_cycle_counter_int_part == 3);
-                pn_correlation_update_one_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3);//TODO: Needs to include the next index as well | mrr_cycle_counter_int_part == 5);
+                pn_correlation_update_zero_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3 || mrr_cycle_counter_int_part == 4);
+                pn_correlation_update_one_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 5 || mrr_cycle_counter_int_part == 6);
+                pn_correlation_reset_accumulators = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 7);
                 pn_correlation_finished_flag = (mrr_cycle_counter_int_part == recharge_len+1) & (payload_bit_ctr == (PN_SEQ_LEN + SFO_SEQ_LEN));
 
                 accum_rst = mrr_cycle_counter_changed;
-                jitter_accum_rst = mrr_cycle_counter_changed & (mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2-1:OVERSAMPLING_RATIO_LOG2-1] == 0);
+                jitter_accum_rst = mrr_cycle_counter_changed & (mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+PULSE_SEPARATION_LOG2+SFO_CTR_LEN_LOG2-1:OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1] == 0);
                 o_decoded_tvalid = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part <= recharge_len+2) & (mrr_cycle_counter_int_part > 0);
                 o_decoded_tlast = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == recharge_len+2);
 
@@ -334,14 +474,26 @@ module mrr_loopback_bpk
                 peak_search_update_timing = (mrr_cycle_counter_int_part == recharge_len+2);
 
                 if((payload_bit_ctr-pn_result_idx) == num_payload_bits) begin
+                    next_state = ST_WAIT_JITTER;
+                end
+            end
+
+            ST_WAIT_JITTER: begin
+		//Jitter added on the last bit may make the
+		// mrr_cycle_counter_frac_part go negative.  Therefore, in order
+		// to get the correct turnaround time, we should wait for it to
+		// go positive again...
+                mrr_cycle_counter_incr = do_op;
+                if(~mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1]) begin
                     mrr_cycle_counter_rst_int_part = 1'b1;
                     next_state = ST_WAIT_TURNAROUND;
                 end
             end
 
             ST_WAIT_TURNAROUND: begin
-                mrr_cycle_counter_incr = do_op;
-                if(mrr_cycle_counter_int_part == wait_step) begin
+                tx_en = ~tx_disable;
+                mrr_cycle_counter_incr = do_op_loopback;
+                if(mrr_cycle_counter_loopback_part == wait_step) begin
                     mrr_cycle_counter_rst_int_part = 1'b1;
                     next_state = ST_TX;
                 end
@@ -350,12 +502,12 @@ module mrr_loopback_bpk
 	    //Then transmit the packet, one bit at a time.  Transition back to
 	    // a waiting state after all 32 bits have been transmitted to MRR
             ST_TX: begin
-                tx_en = 1'b1;
+                tx_en = ~tx_disable;
                 detector_reset = 1'b1;
-                mrr_cycle_counter_incr = do_op;
-                mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_int_part == 4);
-                tx_bit_ctr_incr = (mrr_cycle_counter_int_part == 4);
-                o_tkeep = (tx_disable) ? 1'b0 : (cur_bit) ? (mrr_cycle_counter_int_part == 0) : (mrr_cycle_counter_int_part == 2);
+                mrr_cycle_counter_incr = do_op_loopback;
+                mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_loopback_part == 4);
+                tx_bit_ctr_incr = (mrr_cycle_counter_loopback_part == 4);
+                o_tkeep = (tx_disable) ? 1'b0 : (cur_bit) ? (mrr_cycle_counter_loopback_part <= 1) : (mrr_cycle_counter_loopback_part >= 2);
                 if(tx_bit_ctr == 32) begin
                     next_state = ST_SELF_TRIGGER_WAIT;
                 end 
@@ -390,23 +542,25 @@ module mrr_loopback_bpk
     reg pn_set_result_offset;
     reg pn_reset_search;
 
-    reg [PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] pn_corr_accum, highest_pn_search_corr;
+    reg [PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] pn_corr_accum, highest_pn_search_corr;
     reg [SFO_SEQ_LEN_LOG2-1:0] highest_pn_search_idx;
 
-    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] pn_readback;
-    wire [PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] pn_readback_se;
-    assign pn_readback_se = {{{PN_SEQ_LEN_LOG2}{pn_readback[ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2]}},pn_readback};
+    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] pn_readback;
+    wire [PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] pn_readback_se;
+    assign pn_readback_se = {{{PN_SEQ_LEN_LOG2}{pn_readback[ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1]}},pn_readback};
     reg [PN_SEQ_LEN-1:0] pn_sequence;
 
-    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] zero_accum_padded = {1'b0,zero_accum};
-    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2:0] accum_padded = {1'b0,accum};
-    ram_2port #(.DWIDTH(ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1), .AWIDTH(PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2)) pn_rb_ram (
+    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] zero_accum_padded = {1'b0,zero_accum};
+    wire [ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1:0] one_accum_padded = {1'b0,one_accum};
+    //ram_2port #(.DWIDTH(ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+2), .AWIDTH(PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2)) pn_rb_ram (
+    wire pn_readback_short;
+    ram_2port #(.DWIDTH(1), .AWIDTH(PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2)) pn_rb_ram (
         //Port A (written to by decoding logic)
         .clka(clk),
         .ena(1'b1),
-        .wea(pn_correlation_update_one_flag),
+        .wea(pn_correlation_reset_accumulators),
         .addra(pn_correlation_write_addr),
-        .dia(zero_accum_padded-accum_padded),
+        .dia((zero_accum > one_accum) ? 1'b1 : 1'b0),//zero_accum_padded-one_accum_padded),
         .doa(),
 
         //Port B (read from correlation logic)
@@ -415,8 +569,11 @@ module mrr_loopback_bpk
         .web(1'b0),
         .addrb(pn_read_idx),
         .dib(),
-        .dob(pn_readback)
+        .dob(pn_readback_short)
     );
+
+    //TODO: Probably should reduce width of pn_readback to a more reasonable level...
+    assign pn_readback = (pn_readback_short == 1'b1) ? {{{ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1}{1'b0}},1'b1} : {{ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+2}{1'b1}};
 
     localparam PN_SEARCH_IDLE = 0;
     localparam PN_SEARCH_CORR_UPDATE = 1;
@@ -465,7 +622,7 @@ module mrr_loopback_bpk
                 pn_sequence <= PN_SEQ;
                 pn_search_idx <= pn_search_idx + 8'd1;
                 pn_search_sub_idx <= 0;
-                if((pn_corr_accum > highest_pn_search_corr) && (pn_corr_accum[PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2] == 1'b0)) begin
+                if((pn_corr_accum > highest_pn_search_corr) && (pn_corr_accum[PN_SEQ_LEN_LOG2+ESAMP_WIDTH+OVERSAMPLING_RATIO_LOG2+1] == 1'b0)) begin
                     highest_pn_search_corr <= pn_corr_accum;
                     highest_pn_search_idx <= pn_search_idx;
                 end

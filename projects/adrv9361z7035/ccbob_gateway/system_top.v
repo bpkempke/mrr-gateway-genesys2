@@ -240,9 +240,7 @@ module system_top (
     .tx_frame_out_n (tx_frame_out_n),
     .tx_frame_out_p (tx_frame_out_p),
     .txnrx (txnrx),
-    .peripheral_aresetn(peripheral_aresetn),
-    .up_enable (gpio_o[47]),
-    .up_txnrx (gpio_o[48]));
+    .peripheral_aresetn(peripheral_aresetn));
 
 endmodule
 
