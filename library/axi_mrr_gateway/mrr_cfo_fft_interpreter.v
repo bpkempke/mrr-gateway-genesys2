@@ -90,6 +90,7 @@ setting_primary_fft_len_decim_mask,
 setting_secondary_fft_len_log2,
 setting_secondary_fft_len_mask,
 setting_secondary_fft_len_log2_changed,
+reset_diagnostic_counter,
 debug
 );
 
@@ -164,6 +165,7 @@ input [PRIMARY_FFT_MAX_LEN_LOG2-1:0] setting_primary_fft_len_mask;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2:0] setting_primary_fft_len_decim;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2_LOG2-1:0] setting_primary_fft_len_decim_log2;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2-1:0] setting_primary_fft_len_decim_mask;
+input reset_diagnostic_counter;
 output [159:0] debug;
 
 //Historic primary FFT samples are stored in RAM.
@@ -855,6 +857,9 @@ reg historic_sample_counter_incr;
 reg [NUM_DECODE_PATHWAYS-1:0] new_assignment_array;
 reg reset_dram_ctr;
 
+reg [7:0] cur_unhandled_triggers, max_unhandled_triggers;
+reg trigger_search_last;
+
 parameter STATE_IDLE  = 0;
 parameter STATE_LOAD_FROM_DRAM = 1;
 parameter STATE_START = 2;
@@ -899,6 +904,8 @@ integer rst_idx;
 integer idx;
 always @(posedge clk) begin
     if(rst | mf_settings_changed) begin
+        max_unhandled_triggers <= 0;
+        cur_unhandled_triggers <= 0;
         fft_hist_read_idx <= 0;
         fft_i_done <= 0;
         cfo_index_reversed <= 0;
@@ -912,6 +919,7 @@ always @(posedge clk) begin
         dram_load_ctr <= 0;
         new_assignment_array <= 0;
         ack_pathway_assignment_reg <= 1'b0;
+        trigger_search_last <= 1'b0;
         state <= STATE_IDLE;
         for(rst_idx=0; rst_idx<NUM_DECODE_PATHWAYS; rst_idx=rst_idx+1) begin
             pathway_assignment_n1[rst_idx] <= 0;
@@ -957,11 +965,23 @@ always @(posedge clk) begin
         end
 
         if(correlation_search_reset) begin
+            if(cur_unhandled_triggers > max_unhandled_triggers) begin
+                max_unhandled_triggers <= cur_unhandled_triggers;
+            end
+            cur_unhandled_triggers <= 0;
             new_assignment_array <= 0;
             correlator_shift_phase <= CORR_SHIFT_PHASE_READ;
         end else begin
+            if(trigger_search & (~trigger_search_last)) begin
+                cur_unhandled_triggers <= cur_unhandled_triggers + 1;
+            end
             new_assignment_array <= new_assignment_array | store_pathway_assignment;
         end
+        if(reset_diagnostic_counter) begin
+            max_unhandled_triggers <= 0;
+        end
+        trigger_search_last <= trigger_search;
+
         if(correlator_shift_out) begin
             if(correlator_shift_phase == CORR_SHIFT_PHASE_READ) begin
                 correlator_shift_phase <= CORR_SHIFT_PHASE_READ2;
@@ -1258,10 +1278,11 @@ generate
 endgenerate
 
 //Only allow for more incoming samples if there is at least 16 spaces free in FIFO (latency of CORDIC)
-assign i_tready = (cordic_fifo_space[0] > 16);
+assign i_tready = 1'b1;//(cordic_fifo_space[0] > 16);
 
 //assign debug = {cordic_fifo_space[0], global_search_idx[0], state};
-assign debug = {12'd0,currently_decoding,recently_assigned,2'd0,global_search_idx[1],2'd0,global_search_idx[0],state,22'd0,out_assignment_cfo_idx[19:10],22'd0,out_assignment_cfo_idx[9:0],out_assignment_corr[63:0]};
+//assign debug = {12'd0,currently_decoding,recently_assigned,2'd0,global_search_idx[1],2'd0,global_search_idx[0],state,22'd0,out_assignment_cfo_idx[19:10],22'd0,out_assignment_cfo_idx[9:0],out_assignment_corr[63:0]};
+assign debug = {152'd0,max_unhandled_triggers};
 
 endmodule
 

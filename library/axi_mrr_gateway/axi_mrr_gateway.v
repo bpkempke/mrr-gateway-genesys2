@@ -1419,11 +1419,12 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(record_len), .changed());
 
+  wire reset_diagnostic_counter;
   setting_reg #(
-      .my_addr(SR_CONTROL), .awidth(8), .width(2), .at_reset(0))
+      .my_addr(SR_CONTROL), .awidth(8), .width(3), .at_reset(0))
   sr_control (
     .clk(ce_clk), .rst(ce_rst_in_sync),
-    .strobe(set_stb), .addr(set_addr), .in(set_data), .out({enable,soft_reset}), .changed());
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out({reset_diagnostic_counter,enable,soft_reset}), .changed());
 
   //Filterboard outputs:
   // filterboard[0]:
@@ -1634,6 +1635,7 @@ module axi_mrr_gateway #(
         .corr_wait_len(corr_wait_len),
 
         //Debug stuff
+        .reset_diagnostic_counter(reset_diagnostic_counter),
         .readies(mrr_basic_readies),
         .valids(mrr_basic_valids),
         .cfo_search_debug(cfo_search_debug)

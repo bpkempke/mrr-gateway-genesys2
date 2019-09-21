@@ -81,6 +81,7 @@ fft_sync_req,
 fft_sync_latest,
 fft_sync_ack,
 corr_wait_len,
+reset_diagnostic_counter,
 readies,
 valids,
 cfo_search_debug
@@ -160,6 +161,7 @@ cfo_search_debug
     input [CORR_WAIT_LEN_LOG2-1:0] corr_wait_len;
 
     //Debug stuff
+    input reset_diagnostic_counter;
     output [5:0] readies;
     output [5:0] valids;
     output [159:0] cfo_search_debug;
@@ -258,6 +260,7 @@ cfo_search_debug
         .setting_secondary_fft_len_log2(setting_secondary_fft_len_log2),
         .setting_secondary_fft_len_mask(setting_secondary_fft_len_mask),
         .setting_secondary_fft_len_log2_changed(setting_secondary_fft_len_log2_changed),
+        .reset_diagnostic_counter(reset_diagnostic_counter),
         .debug(cfo_search_debug)
     ); 
 
