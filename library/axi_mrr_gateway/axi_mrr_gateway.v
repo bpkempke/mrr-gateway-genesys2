@@ -608,40 +608,6 @@ module axi_mrr_gateway #(
   wire txnrx_request = tx_en;
   wire txnrx_request_sync;
   wire [31:0] out_tdata_sync;
-  synchronizer #(.INITIAL_VAL(1'b0)) txnrx_request_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(txnrx_request), .out(txnrx_request_sync));
-  synchronizer #(.WIDTH(32), .INITIAL_VAL(0)) out_tdata_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(out_tdata), .out(out_tdata_sync));
-
-  assign dac_data_i0 = (bypass) ? out_dac_data_i0 : out_tdata_sync[15:0];
-  assign dac_data_q0 = (bypass) ? out_dac_data_q0 : out_tdata_sync[31:16];
-
-  reg last_txnrx_request;
-  reg [3:0] enable_wait_counter;
-  always @(posedge s_axi_aclk) begin
-    if(~s_axi_aresetn) begin
-      up_enable <= 1'b1;
-      up_txnrx <= 1'b0;
-      last_txnrx_request <= 1'b0;
-      enable_wait_counter <= 0;
-    end else begin
-      last_txnrx_request <= txnrx_request_sync;
-      if(last_txnrx_request != txnrx_request_sync) begin
-        enable_wait_counter <= 0;
-        up_enable <= 1'b0;
-        up_txnrx <= txnrx_request_sync;
-      end else begin
-        if(enable_wait_counter < 4'hF) begin
-          enable_wait_counter <= enable_wait_counter + 1;
-        end else begin
-          up_enable <= 1'b1;
-        end
-      end
-    end
-  end
-
-  wire tx_en;
-  wire txnrx_request = tx_en;
-  wire txnrx_request_sync;
-  wire [31:0] out_tdata_sync;
   reg [31:0] out_tdata_presync_reg;
   wire [31:0] out_tdata_presync = (out_tkeep) ? out_tdata : 32'd0;
   synchronizer #(.INITIAL_VAL(1'b0)) txnrx_request_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(txnrx_request), .out(txnrx_request_sync));

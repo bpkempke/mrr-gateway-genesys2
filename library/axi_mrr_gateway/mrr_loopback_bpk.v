@@ -51,8 +51,6 @@ module mrr_loopback_bpk
 
     output reg tx_en;
 
-    output reg tx_en;
-
     localparam EARLY_RX_OFFSET = 2;
 
     /* Concept of operations:
