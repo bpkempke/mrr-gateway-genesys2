@@ -81,6 +81,8 @@ fft_sync_req,
 fft_sync_latest,
 fft_sync_ack,
 corr_wait_len,
+window_ram_write_en,
+window_ram_write_data,
 reset_diagnostic_counter,
 readies,
 valids,
@@ -159,6 +161,8 @@ cfo_search_debug
     output fft_sync_latest;
     input fft_sync_ack;
     input [CORR_WAIT_LEN_LOG2-1:0] corr_wait_len;
+    input window_ram_write_en;
+    input [PRIMARY_FFT_WIDTH-1:0] window_ram_write_data;
 
     //Debug stuff
     input reset_diagnostic_counter;
@@ -261,6 +265,8 @@ cfo_search_debug
         .setting_secondary_fft_len_mask(setting_secondary_fft_len_mask),
         .setting_secondary_fft_len_log2_changed(setting_secondary_fft_len_log2_changed),
         .reset_diagnostic_counter(reset_diagnostic_counter),
+        .window_ram_write_en(window_ram_write_en),
+        .window_ram_write_data(window_ram_write_data),
         .debug(cfo_search_debug)
     ); 
 

@@ -1226,6 +1226,7 @@ module axi_mrr_gateway #(
   localparam SR_RECORD_LEN = 165;
   localparam SR_CONTROL = 166;
   localparam SR_FILTERBOARD = 167;
+  localparam SR_WINDOW_RAM = 170;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1469,6 +1470,15 @@ module axi_mrr_gateway #(
   assign filterboard[2] = (tx_en) ? 1'b0 : filterboard_int[2];
   assign filterboard[3] = filterboard_int[3];
 
+  //Access window coefficients
+  wire window_ram_write_en;
+  wire [PRIMARY_FFT_WIDTH-1:0] window_ram_write_data;
+  setting_reg #(
+     .my_addr(SR_WINDOW_RAM), .awidth(8), .width(PRIMARY_FFT_WIDTH), .at_reset(0))
+  sr_window (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(window_ram_write_data), .changed(window_ram_write_en));
+
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
   reg [SFO_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_frac;
@@ -1663,6 +1673,8 @@ module axi_mrr_gateway #(
         .fft_sync_latest(fft_sync_latest),
         .fft_sync_ack(fft_sync_ack),
         .corr_wait_len(corr_wait_len),
+        .window_ram_write_en(window_ram_write_en),
+        .window_ram_write_data(window_ram_write_data),
 
         //Debug stuff
         .reset_diagnostic_counter(reset_diagnostic_counter),

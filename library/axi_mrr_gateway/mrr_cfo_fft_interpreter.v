@@ -91,6 +91,8 @@ setting_secondary_fft_len_log2,
 setting_secondary_fft_len_mask,
 setting_secondary_fft_len_log2_changed,
 reset_diagnostic_counter,
+window_ram_write_en,
+window_ram_write_data,
 debug
 );
 
@@ -166,6 +168,8 @@ input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2:0] setting_primary_fft_len_decim;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2_LOG2-1:0] setting_primary_fft_len_decim_log2;
 input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2-1:0] setting_primary_fft_len_decim_mask;
 input reset_diagnostic_counter;
+input window_ram_write_en;
+input [PRIMARY_FFT_WIDTH-1:0] window_ram_write_data;
 output [159:0] debug;
 
 //Historic primary FFT samples are stored in RAM.
@@ -362,11 +366,15 @@ wire do_op_iq_in = i_tready & i_tvalid;
 //Secondary FFT step is used to search for SFO frequency through
 // coherent integration through each candidate SFO frequency's harmonics
 
-reg fft_i_done;
+wire [PRIMARY_FFT_WIDTH-1:0] fft_i_tdata;
 wire fft_i_tready;
-wire fft_i_tvalid = ~reset_state & ~fft_i_done;
-wire fft_i_tlast = last_secondary_sample;
-wire update_historical_read_idx = fft_i_tvalid & fft_i_tready;
+wire fft_i_tvalid;
+wire fft_i_tlast;
+reg fft_window_i_done;
+wire fft_window_i_tready;
+wire fft_window_i_tvalid = ~reset_state & ~fft_window_i_done;
+wire fft_window_i_tlast = last_secondary_sample;
+wire update_historical_read_idx = fft_window_i_tvalid & fft_window_i_tready;
 
 wire [63:0] fft_o_tdata;
 wire        fft_o_tlast;
@@ -378,6 +386,59 @@ wire [39:0] mag_phase_o_tdata;
 wire        mag_phase_o_tlast;
 wire        mag_phase_o_tvalid;
 reg         mag_phase_o_tready;
+
+wire [PRIMARY_FFT_WIDTH-1:0] window_tdata;
+wire window_tlast = fft_window_i_tlast;
+wire window_tvalid = fft_window_i_tvalid;
+
+reg [SECONDARY_FFT_MAX_LEN_LOG2-1:0] window_ram_write_addr;
+reg [SECONDARY_FFT_MAX_LEN_LOG2-1:0] window_ram_read_addr;
+ram_2port #(.DWIDTH(PRIMARY_FFT_WIDTH), .AWIDTH(SECONDARY_FFT_MAX_LEN_LOG2)) window_ram_inst (
+    .clka(clk), .ena(1'b1), .doa(),
+    .wea(window_ram_write_en),
+    .addra(window_ram_write_addr),
+    .dia(window_ram_write_data),
+
+    .clkb(clk), .enb(1'b1), .dib(), .web(1'b0),
+    .addrb(window_ram_read_addr),
+    .dob(window_tdata)
+);
+
+always @(posedge clk) begin
+    if(rst) begin
+        window_ram_write_addr <= 0;
+        window_ram_read_addr <= 0;
+    end else begin
+        if(window_ram_write_en) begin
+            window_ram_write_addr <= window_ram_write_addr + 1;
+        end
+        if(fft_window_i_tvalid & fft_window_i_tready) begin
+            window_ram_read_addr <= window_ram_read_addr + 1;
+        end
+    end
+end
+
+mult #(
+    .WIDTH_A(PRIMARY_FFT_WIDTH),
+    .WIDTH_B(PRIMARY_FFT_WIDTH),
+    .WIDTH_P(PRIMARY_FFT_WIDTH),
+    .DROP_TOP_P(5)
+) inst_sfo_window (
+    .clk(clk),
+    .reset(rst),
+    .a_tdata(fft_hist_read_data),
+    .a_tlast(fft_window_i_tlast),
+    .a_tvalid(fft_window_i_tvalid),
+    .a_tready(fft_window_i_tready),
+    .b_tdata(window_tdata),
+    .b_tlast(window_tlast),
+    .b_tvalid(window_tvalid),
+    .b_tready(),
+    .p_tdata(fft_i_tdata),
+    .p_tlast(fft_i_tlast),
+    .p_tvalid(fft_i_tvalid),
+    .p_tready(fft_i_tready)
+);
 
 //FFT configuration parameters
 wire [7:0] secondary_fft_size_log2   = setting_secondary_fft_len_log2;        // Set FFT size
@@ -394,7 +455,7 @@ axi_fft_un inst_axi_fft (
     .s_axis_data_tvalid(fft_i_tvalid),
     .s_axis_data_tready(fft_i_tready),
     .s_axis_data_tlast(fft_i_tlast),
-    .s_axis_data_tdata({16'd0,fft_hist_read_data}),
+    .s_axis_data_tdata({16'd0,fft_i_tdata}),
     .m_axis_data_tvalid(fft_o_tvalid),
     .m_axis_data_tready(fft_o_tready),
     .m_axis_data_tlast(fft_o_tlast),
@@ -907,7 +968,7 @@ always @(posedge clk) begin
         max_unhandled_triggers <= 0;
         cur_unhandled_triggers <= 0;
         fft_hist_read_idx <= 0;
-        fft_i_done <= 0;
+        fft_window_i_done <= 0;
         cfo_index_reversed <= 0;
         historic_sample_counter <= 0;
         correlator_shift_counter <= 0;
@@ -1010,11 +1071,11 @@ always @(posedge clk) begin
         if(update_historical_read_idx) begin
             fft_hist_read_idx <= fft_hist_read_idx + 1;
             if(fft_hist_read_idx == ({{{{SECONDARY_FFT_MAX_LEN_LOG2}{1'b0}}, setting_primary_fft_len_decim_mask} << setting_secondary_fft_len_log2} | setting_secondary_fft_len_mask)) begin
-                fft_i_done <= 1'b1;
+                fft_window_i_done <= 1'b1;
             end
         end
         if(reset_state) begin
-            fft_i_done <= 1'b0;
+            fft_window_i_done <= 1'b0;
         end
 
         //FFT samples are continuously stored into historical array

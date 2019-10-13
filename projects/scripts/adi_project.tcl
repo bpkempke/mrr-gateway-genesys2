@@ -251,6 +251,7 @@ proc adi_project_impl {project_name prcfg_name {xdc_files ""}} {
 
   write_checkpoint -force $p_prefix.${prcfg_name}_impl.dcp
   report_utilization -pblocks pb_prcfg -file $p_prefix.${prcfg_name}_utilization.rpt
+  report_utilization -hierarchical -file $p_prefix.${prcfg_name}_utilization_hierarchical.rpt
   report_timing_summary -file $p_prefix.${prcfg_name}_timing_summary.rpt
 
   if [expr [get_property SLACK [get_timing_paths]] < 0] {
