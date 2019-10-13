@@ -1227,6 +1227,7 @@ module axi_mrr_gateway #(
   localparam SR_CONTROL = 166;
   localparam SR_FILTERBOARD = 167;
   localparam SR_WINDOW_RAM = 170;
+  localparam SR_FFT_MASK_LATCH = 171;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1445,6 +1446,13 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out({reset_diagnostic_counter,enable,soft_reset}), .changed());
 
+  wire fft_mask_latch;
+  setting_reg #(
+      .my_addr(SR_FFT_MASK_LATCH), .awidth(8), .width(1), .at_reset(0))
+  sr_fft_mask_latch (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(), .changed(fft_mask_latch));
+
   //Filterboard outputs:
   // filterboard[0]:
   //    0: 915 MHz RF path select
@@ -1506,13 +1514,18 @@ module axi_mrr_gateway #(
     end
   end
 
+  reg [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask_stage;
   reg [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask;
   always @(posedge ce_clk) begin
     if(ce_rst) begin
+      primary_fft_mask_stage <= {{PRIMARY_FFT_MAX_LEN}{1'b1}};
       primary_fft_mask <= {{PRIMARY_FFT_MAX_LEN}{1'b1}};
     end else begin
       if(primary_fft_mask_shift) begin
-        primary_fft_mask <= {primary_fft_mask[PRIMARY_FFT_MAX_LEN-32-1:0],primary_fft_mask_temp};
+        primary_fft_mask_stage <= {primary_fft_mask_stage[PRIMARY_FFT_MAX_LEN-32-1:0],primary_fft_mask_temp};
+      end
+      if(fft_mask_latch) begin
+        primary_fft_mask <= primary_fft_mask_stage;
       end
     end
   end
