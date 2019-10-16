@@ -413,7 +413,11 @@ always @(posedge clk) begin
             window_ram_write_addr <= window_ram_write_addr + 1;
         end
         if(fft_window_i_tvalid & fft_window_i_tready) begin
-            window_ram_read_addr <= window_ram_read_addr + 1;
+            if(fft_window_i_tlast) begin
+                window_ram_read_addr <= 0;
+            end else begin
+                window_ram_read_addr <= window_ram_read_addr + 1;
+            end
         end
     end
 end
