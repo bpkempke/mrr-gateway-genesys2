@@ -50,7 +50,7 @@ always @* begin
     priority_request = 1'b0;
     priority_chip_id = 0;
     priority_chain = 0;
-    for(priority_idx=0; priority_idx<NUM_DECODE_CHAIN; priority_idx=priority_idx+1) begin
+    for(priority_idx=0; priority_idx<NUM_DECODE_CHAINS; priority_idx=priority_idx+1) begin
         if(pop_request[priority_idx]) begin
             priority_request = 1'b1;
             priority_chip_id = pop_chip_id[(priority_idx+1)*CHIP_ID_LEN-1-:CHIP_ID_LEN];

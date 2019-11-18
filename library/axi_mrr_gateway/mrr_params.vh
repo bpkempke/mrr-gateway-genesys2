@@ -1,3 +1,7 @@
+localparam LOOPBACK_QUEUE_COUNTER_LEN_LOG2 = 20;
+localparam LOOPBACK_QUEUE_LEN_LOG2 = 10;
+localparam LOOPBACK_MESSAGE_LEN = 32;
+localparam CHIP_ID_LEN = 16;
 localparam SFO_CTR_LEN = 1024;
 localparam SFO_CTR_LEN_LOG2 = 10;
 localparam SFO_CTR_INCR = 1;

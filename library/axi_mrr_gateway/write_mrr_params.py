@@ -36,6 +36,10 @@ SECONDARY_FFT_MAX_LEN_LOG2 = 9
 RECHARGE_CYCLES = 4#32
 SYMBOL_CYCLES = 4
 
+LOOPBACK_QUEUE_COUNTER_LEN_LOG2 = 20
+LOOPBACK_QUEUE_LEN_LOG2 = 10
+LOOPBACK_MESSAGE_LEN = 32
+CHIP_ID_LEN = 16
 SFO_CTR_LEN_LOG2 = 10
 SFO_CTR_INCR = 1
 JITTER_INCR = 10
@@ -131,6 +135,10 @@ with open('loopback_params.hpp','w') as f:
     f.write('}')
 
 with open('mrr_params.vh','w') as f:
+    f.write('localparam LOOPBACK_QUEUE_COUNTER_LEN_LOG2 = {};\n'.format(LOOPBACK_QUEUE_COUNTER_LEN_LOG2))
+    f.write('localparam LOOPBACK_QUEUE_LEN_LOG2 = {};\n'.format(LOOPBACK_QUEUE_LEN_LOG2))
+    f.write('localparam LOOPBACK_MESSAGE_LEN = {};\n'.format(LOOPBACK_MESSAGE_LEN))
+    f.write('localparam CHIP_ID_LEN = {};\n'.format(CHIP_ID_LEN))
     f.write('localparam SFO_CTR_LEN = {};\n'.format(SFO_CTR_LEN))
     f.write('localparam SFO_CTR_LEN_LOG2 = {};\n'.format(SFO_CTR_LEN_LOG2))
     f.write('localparam SFO_CTR_INCR = {};\n'.format(SFO_CTR_INCR))
