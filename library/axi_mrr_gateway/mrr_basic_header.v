@@ -83,6 +83,10 @@ fft_sync_ack,
 corr_wait_len,
 window_ram_write_en,
 window_ram_write_data,
+lq_push_chip_id,
+lq_push_request,
+lq_push_message,
+lq_push_ack,
 reset_diagnostic_counter,
 readies,
 valids,
@@ -163,6 +167,10 @@ cfo_search_debug
     input [CORR_WAIT_LEN_LOG2-1:0] corr_wait_len;
     input window_ram_write_en;
     input [PRIMARY_FFT_WIDTH-1:0] window_ram_write_data;
+    input [CHIP_ID_LEN-1:0] lq_push_chip_id;
+    input lq_push_request;
+    input [LOOPBACK_MESSAGE_LEN-1:0] lq_push_message;
+    output lq_push_ack;
 
     //Debug stuff
     input reset_diagnostic_counter;
@@ -190,6 +198,23 @@ cfo_search_debug
     wire [RESAMPLE_INT_WIDTH*NUM_DECODE_PATHWAYS-1:0] cfo_assignment_n1;
     wire [RESAMPLE_FRAC_WIDTH*NUM_DECODE_PATHWAYS-1:0] cfo_assignment_n2;
     wire [PRIMARY_FFT_MAX_LEN_LOG2*NUM_DECODE_PATHWAYS-1:0] cfo_assignment_cfo_idx;
+
+    wire [NUM_DECODE_CHAINS*CHIP_ID_LEN-1:0] lq_pop_chip_id;
+    wire [NUM_DECODE_CHAINS-1:0] lq_pop_request;
+    wire [NUM_DECODE_CHAINS-1:0] lq_pop_ack;
+    wire [LOOPBACK_MESSAGE_LEN-1:0] lq_pop_message;
+    mrr_per_node_loopback_queue inst_loopback_queue (
+        .clk(clk),
+        .rst(rst),
+        .pop_chip_id(lq_pop_chip_id),
+        .pop_request(lq_pop_request),
+        .pop_ack(lq_pop_ack),
+        .pop_message(lq_pop_message),
+        .push_chip_id(lq_push_chip_id),
+        .push_request(lq_push_request),
+        .push_message(lq_push_message),
+        .push_ack(lq_push_ack)
+    );
 
     //This block parses incoming fft (magnitude) data and basically just implements max hold for now
     mrr_cfo_fft_interpreter #(
@@ -336,7 +361,11 @@ cfo_search_debug
                 .o_decoded_tready(o_decoded_tready[pathway_idx]),
                 .currently_decoding(currently_decoding[pathway_idx]),
                 .detector_reset(detector_reset[pathway_idx]),
-                .tx_en(tx_en[pathway_idx])
+                .tx_en(tx_en[pathway_idx]),
+                .lq_pop_chip_id(lq_pop_chip_id[CHIP_ID_LEN*(pathway_idx+1)-1-:CHIP_ID_LEN]),
+                .lq_pop_request(lq_pop_request[pathway_idx]),
+                .lq_pop_ack(lq_pop_ack[pathway_idx]),
+                .lq_pop_message(lq_pop_message[pathway_idx])
             );
 
         end

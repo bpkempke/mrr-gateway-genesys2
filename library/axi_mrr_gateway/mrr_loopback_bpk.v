@@ -5,7 +5,7 @@ module mrr_loopback_bpk
     parameter CWIDTH = 32,
     parameter ZWIDTH = 24,
     parameter PN_SEQ = 15'b000100110101111
-)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, setting_primary_fft_len_log2, tx_en);
+)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, setting_primary_fft_len_log2, tx_en, lq_pop_chip_id, lq_pop_request, lq_pop_ack, lq_pop_message);
 
     `include "mrr_params.vh"
 
@@ -50,6 +50,11 @@ module mrr_loopback_bpk
     input [PRIMARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_primary_fft_len_log2;
 
     output reg tx_en;
+
+    output reg [CHIP_ID_LEN-1:0] lq_pop_chip_id;
+    output reg lq_pop_request;
+    input lq_pop_ack;
+    input [LOOPBACK_MESSAGE_LEN-1:0] lq_pop_message;
 
     localparam EARLY_RX_OFFSET = 2;
 
@@ -157,7 +162,8 @@ module mrr_loopback_bpk
     reg [ESAMP_WIDTH-1:0] peak_val;
     reg [19:0] peak_idx, peak_idx_end;
 
-    wire cur_bit = tx_word[tx_bit_ctr];
+    reg [LOOPBACK_MESSAGE_LEN-1:0] lq_pop_message_latched;
+    wire cur_bit = lq_pop_message_latched[tx_bit_ctr];//tx_word[tx_bit_ctr];
 
     reg pn_correlation_reset_accumulators;
     reg pn_correlation_update_zero_flag;
@@ -190,6 +196,8 @@ module mrr_loopback_bpk
         .m_axis_dout_tready(1'b1),
         .m_axis_dout_tdata(sfo_div_result)
     );
+
+    reg lq_request_latch;
 
     localparam ST_READY = 0;
     localparam ST_WAIT = 1;
@@ -232,6 +240,9 @@ module mrr_loopback_bpk
             pps_trigger <= 1'b0;
             loopback_counter <= 0;
             do_op_loopback <= 0;
+            lq_pop_chip_id <= 0;
+            lq_pop_request <= 0;
+            lq_pop_message_latched <= 0;
         end else begin
             state <= next_state;
             mrr_cycle_counter_last <= mrr_cycle_counter_int_part;
@@ -381,6 +392,15 @@ module mrr_loopback_bpk
                     do_op_loopback <= 1'b1;
                 end
             end
+
+            if(lq_request_latch) begin
+                lq_pop_chip_id <= decoded_bits[MAX_BITS-1-48-:16];
+                lq_pop_request <= 1'b1;
+            end
+            if(lq_pop_ack) begin
+                lq_pop_request <= 1'b0;
+                lq_pop_message_latched <= lq_pop_message;
+            end
             //loopback_counter <= loopback_counter + 1;
             //if(loopback_counter == 199) begin
             //    loopback_counter <= 0;
@@ -422,6 +442,7 @@ module mrr_loopback_bpk
         currently_decoding = 1'b1;
         metadata_push_flag = 1'b0;
         metadata_reset_flag = 1'b0;
+        lq_request_latch = 1'b0;
         
         case(state)
             //In ST_READY, we are waiting for an incoming packet to trigger loopback
@@ -472,6 +493,7 @@ module mrr_loopback_bpk
                 peak_search_update_timing = (mrr_cycle_counter_int_part == recharge_len+2);
 
                 if((payload_bit_ctr-pn_result_idx) == num_payload_bits) begin
+                    lq_request_latch = 1'b1;
                     next_state = ST_WAIT_JITTER;
                 end
             end

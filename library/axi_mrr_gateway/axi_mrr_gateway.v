@@ -1228,6 +1228,9 @@ module axi_mrr_gateway #(
   localparam SR_FILTERBOARD = 167;
   localparam SR_WINDOW_RAM = 170;
   localparam SR_FFT_MASK_LATCH = 171;
+  localparam SR_LQ_CHIP_ID = 172;
+  localparam SR_LQ_MESSAGE = 173;
+  localparam SR_LQ_REQUEST = 174;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1487,6 +1490,28 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(window_ram_write_data), .changed(window_ram_write_en));
 
+  wire [CHIP_ID_LEN-1:0] lq_push_chip_id;
+  wire lq_push_request;
+  wire [LOOPBACK_MESSAGE_LEN-1:0] lq_push_message;
+  wire lq_push_ack;
+  setting_reg #(
+     .my_addr(SR_LQ_CHIP_ID), .awidth(8), .width(CHIP_ID_LEN), .at_reset(0))
+  sr_chip_id (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(lq_push_chip_id), .changed());
+
+  setting_reg #(
+     .my_addr(SR_LQ_MESAGE), .awidth(8), .width(LOOPBACK_MESSAGE_LEN), .at_reset(0))
+  sr_lq_message (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(lq_push_message), .changed());
+
+  setting_reg #(
+     .my_addr(SR_LQ_REQUEST), .awidth(8), .width(1), .at_reset(0))
+  sr_lq_request (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(lq_push_request), .changed());
+
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
   reg [SFO_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_frac;
@@ -1553,6 +1578,7 @@ module axi_mrr_gateway #(
   localparam RB_CFO   = 6;
   localparam RB_VERSION = 7;
   localparam RB_MASK = 8;
+  localparam RB_MASK = 8;
 //(* dont_touch="true",mark_debug="true"*) 
 //(* dont_touch="true",mark_debug="true"*) 
 //(* dont_touch="true",mark_debug="true"*) 
@@ -1587,6 +1613,7 @@ module axi_mrr_gateway #(
       22 : rb_data <= cfo_search_debug[31-:32];
       23 : rb_data <= {32'h0,4'h0,GIT_VERSION};
       24 : rb_data <= primary_fft_mask_temp;
+      25 : rb_data <= lq_push_ack;
       default        : rb_data <= 64'h0BADC0DE0BADC0DE;
     endcase
   end
@@ -1688,6 +1715,10 @@ module axi_mrr_gateway #(
         .corr_wait_len(corr_wait_len),
         .window_ram_write_en(window_ram_write_en),
         .window_ram_write_data(window_ram_write_data),
+        .lq_push_chip_id(lq_push_chip_id),
+        .lq_push_request(lq_push_request),
+        .lq_push_message(lq_push_message),
+        .lq_push_ack(lq_push_ack),
 
         //Debug stuff
         .reset_diagnostic_counter(reset_diagnostic_counter),

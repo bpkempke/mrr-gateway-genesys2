@@ -40,6 +40,7 @@ GENERIC_DEPS += mrr_cfo_fft_interpreter.v
 GENERIC_DEPS += mrr_dram_fft_buffer.v
 GENERIC_DEPS += mrr_prio_encoder.v
 GENERIC_DEPS += sfo_fft_correlator.v
+GENERIC_DEPS += mrr_per_node_loopback_queue.v
 
 XILINX_DEPS += axi_mrr_gateway_ip.tcl
 
