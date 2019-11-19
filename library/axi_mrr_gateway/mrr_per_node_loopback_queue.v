@@ -30,9 +30,9 @@ localparam LOOPBACK_QUEUE_COUNTER_LEN_LOG2 = 16;
 
 input clk;
 input rst;
-input [NUM_DECODE_CHAINS*CHIP_ID_LEN-1:0] pop_chip_id;
-input [NUM_DECODE_CHAINS-1:0] pop_request;
-output reg [NUM_DECODE_CHAINS-1:0] pop_ack;
+input [NUM_DECODE_PATHWAYS*CHIP_ID_LEN-1:0] pop_chip_id;
+input [NUM_DECODE_PATHWAYS-1:0] pop_request;
+output reg [NUM_DECODE_PATHWAYS-1:0] pop_ack;
 output [LOOPBACK_MESSAGE_LEN-1:0] pop_message;
 input [CHIP_ID_LEN-1:0] push_chip_id;
 input push_request;
@@ -42,15 +42,15 @@ output reg push_ack;
 //Priority queue to determine which requesting decode chain to serve
 reg [CHIP_ID_LEN-1:0] priority_chip_id;
 reg [CHIP_ID_LEN-1:0] priority_chip_id_latched;
-reg [NUM_DECODE_CHAINS-1:0] priority_chain;
-reg [NUM_DECODE_CHAINS-1:0] priority_chain_latched;
+reg [NUM_DECODE_PATHWAYS-1:0] priority_chain;
+reg [NUM_DECODE_PATHWAYS-1:0] priority_chain_latched;
 reg priority_request;
 integer priority_idx;
 always @* begin
     priority_request = 1'b0;
     priority_chip_id = 0;
     priority_chain = 0;
-    for(priority_idx=0; priority_idx<NUM_DECODE_CHAINS; priority_idx=priority_idx+1) begin
+    for(priority_idx=0; priority_idx<NUM_DECODE_PATHWAYS; priority_idx=priority_idx+1) begin
         if(pop_request[priority_idx]) begin
             priority_request = 1'b1;
             priority_chip_id = pop_chip_id[(priority_idx+1)*CHIP_ID_LEN-1-:CHIP_ID_LEN];

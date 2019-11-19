@@ -1,3 +1,5 @@
+localparam MAX_BITS = 256;
+localparam MAX_BITS_LOG2 = 8;
 localparam LOOPBACK_QUEUE_COUNTER_LEN_LOG2 = 20;
 localparam LOOPBACK_QUEUE_LEN_LOG2 = 10;
 localparam LOOPBACK_MESSAGE_LEN = 32;

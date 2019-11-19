@@ -40,6 +40,7 @@ LOOPBACK_QUEUE_COUNTER_LEN_LOG2 = 20
 LOOPBACK_QUEUE_LEN_LOG2 = 10
 LOOPBACK_MESSAGE_LEN = 32
 CHIP_ID_LEN = 16
+MAX_BITS_LOG2 = 8
 SFO_CTR_LEN_LOG2 = 10
 SFO_CTR_INCR = 1
 JITTER_INCR = 10
@@ -76,6 +77,7 @@ FFT_HIST_LEN_DECIM_LOG2 = PRIMARY_FFT_LEN_DECIM_LOG2 + SECONDARY_FFT_LEN_LOG2
 if SECONDARY_FFT_LEN_LOG2 < 8:
     print("ERROR: Secondary FFT length must by 2^8 or greater to ensure adequate correlation output offload time")
 
+MAX_BITS = 2**MAX_BITS_LOG2
 SFO_CTR_LEN = 2**SFO_CTR_LEN_LOG2
 SKIRT_WIDTH = 2**SKIRT_WIDTH_LOG2
 OVERSAMPLING_RATIO = 2**OVERSAMPLING_RATIO_LOG2
@@ -135,6 +137,8 @@ with open('loopback_params.hpp','w') as f:
     f.write('}')
 
 with open('mrr_params.vh','w') as f:
+    f.write('localparam MAX_BITS = {};\n'.format(MAX_BITS))
+    f.write('localparam MAX_BITS_LOG2 = {};\n'.format(MAX_BITS_LOG2))
     f.write('localparam LOOPBACK_QUEUE_COUNTER_LEN_LOG2 = {};\n'.format(LOOPBACK_QUEUE_COUNTER_LEN_LOG2))
     f.write('localparam LOOPBACK_QUEUE_LEN_LOG2 = {};\n'.format(LOOPBACK_QUEUE_LEN_LOG2))
     f.write('localparam LOOPBACK_MESSAGE_LEN = {};\n'.format(LOOPBACK_MESSAGE_LEN))

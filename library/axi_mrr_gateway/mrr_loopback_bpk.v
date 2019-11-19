@@ -162,12 +162,15 @@ module mrr_loopback_bpk
     reg [ESAMP_WIDTH-1:0] peak_val;
     reg [19:0] peak_idx, peak_idx_end;
 
-    reg [LOOPBACK_MESSAGE_LEN-1:0] lq_pop_message_latched;
-    wire cur_bit = lq_pop_message_latched[tx_bit_ctr];//tx_word[tx_bit_ctr];
+    reg [MAX_BITS-1:0] decoded_bits;
 
-    reg pn_correlation_reset_accumulators;
-    reg pn_correlation_update_zero_flag;
-    reg pn_correlation_update_one_flag;
+    reg [LOOPBACK_MESSAGE_LEN-1:0] lq_pop_message_latched;
+
+    wire cur_bit = lq_pop_message_latched[tx_bit_ctr];
+
+    reg reset_accumulators;
+    reg update_zero_accum;
+    reg update_one_accum;
     reg pn_correlation_finished_flag;
     reg pn_correlation_reset;
     reg [PN_SEQ_LEN_LOG2+SFO_SEQ_LEN_LOG2-1:0] pn_correlation_write_addr;
@@ -243,6 +246,7 @@ module mrr_loopback_bpk
             lq_pop_chip_id <= 0;
             lq_pop_request <= 0;
             lq_pop_message_latched <= 0;
+            decoded_bits <= 0;
         end else begin
             state <= next_state;
             mrr_cycle_counter_last <= mrr_cycle_counter_int_part;
@@ -372,13 +376,14 @@ module mrr_loopback_bpk
 
             if(pn_correlation_reset) begin
                 pn_correlation_write_addr <= 0;
-            end else if(pn_correlation_reset_accumulators) begin
+            end else if(reset_accumulators) begin
                 zero_accum <= 0;
                 one_accum <= 0;
+                decoded_bits <= {(one_accum > zero_accum) ? 1'b1 : 1'b0, decoded_bits[MAX_BITS-1:1]};
                 pn_correlation_write_addr <= pn_correlation_write_addr + 1;
-            end else if(pn_correlation_update_zero_flag) begin
+            end else if(update_zero_accum) begin
                 zero_accum <= zero_accum + accum;
-            end else if(pn_correlation_update_one_flag) begin
+            end else if(update_one_accum) begin
                 one_accum <= one_accum + accum;
             end
 
@@ -434,9 +439,9 @@ module mrr_loopback_bpk
         tx_en = 1'b0;
         peak_search_en = 1'b0;
         peak_search_update_timing = 1'b0;
-        pn_correlation_reset_accumulators = 1'b0;
-        pn_correlation_update_zero_flag = 1'b0;
-        pn_correlation_update_one_flag = 1'b0;
+        reset_accumulators = 1'b0;
+        update_zero_accum = 1'b0;
+        update_one_accum = 1'b0;
         pn_correlation_finished_flag = 1'b0;
         pn_correlation_reset = 1'b0;
         currently_decoding = 1'b1;
@@ -479,9 +484,9 @@ module mrr_loopback_bpk
 	        // However, it is up to this block to synchronize to the following
 	        // PN code (15'b000100110101111).  Do this correlation by summing
 	        // difference-based measurements between the zero- and one-chips.
-                pn_correlation_update_zero_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3 || mrr_cycle_counter_int_part == 4);
-                pn_correlation_update_one_flag = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 5 || mrr_cycle_counter_int_part == 6);
-                pn_correlation_reset_accumulators = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 7);
+                update_zero_accum = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 3 || mrr_cycle_counter_int_part == 4);
+                update_one_accum = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 5 || mrr_cycle_counter_int_part == 6);
+                reset_accumulators = mrr_cycle_counter_changed & (mrr_cycle_counter_int_part == 7);
                 pn_correlation_finished_flag = (mrr_cycle_counter_int_part == recharge_len+1) & (payload_bit_ctr == (PN_SEQ_LEN + SFO_SEQ_LEN));
 
                 accum_rst = mrr_cycle_counter_changed;
@@ -578,7 +583,7 @@ module mrr_loopback_bpk
         //Port A (written to by decoding logic)
         .clka(clk),
         .ena(1'b1),
-        .wea(pn_correlation_reset_accumulators),
+        .wea(reset_accumulators),
         .addra(pn_correlation_write_addr),
         .dia((zero_accum > one_accum) ? 1'b1 : 1'b0),//zero_accum_padded-one_accum_padded),
         .doa(),

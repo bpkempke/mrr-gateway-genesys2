@@ -1501,7 +1501,7 @@ module axi_mrr_gateway #(
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(lq_push_chip_id), .changed());
 
   setting_reg #(
-     .my_addr(SR_LQ_MESAGE), .awidth(8), .width(LOOPBACK_MESSAGE_LEN), .at_reset(0))
+     .my_addr(SR_LQ_MESSAGE), .awidth(8), .width(LOOPBACK_MESSAGE_LEN), .at_reset(0))
   sr_lq_message (
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(lq_push_message), .changed());
@@ -1577,7 +1577,6 @@ module axi_mrr_gateway #(
   localparam RB_DRAM4 = 5;
   localparam RB_CFO   = 6;
   localparam RB_VERSION = 7;
-  localparam RB_MASK = 8;
   localparam RB_MASK = 8;
 //(* dont_touch="true",mark_debug="true"*) 
 //(* dont_touch="true",mark_debug="true"*) 

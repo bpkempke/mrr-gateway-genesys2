@@ -199,9 +199,9 @@ cfo_search_debug
     wire [RESAMPLE_FRAC_WIDTH*NUM_DECODE_PATHWAYS-1:0] cfo_assignment_n2;
     wire [PRIMARY_FFT_MAX_LEN_LOG2*NUM_DECODE_PATHWAYS-1:0] cfo_assignment_cfo_idx;
 
-    wire [NUM_DECODE_CHAINS*CHIP_ID_LEN-1:0] lq_pop_chip_id;
-    wire [NUM_DECODE_CHAINS-1:0] lq_pop_request;
-    wire [NUM_DECODE_CHAINS-1:0] lq_pop_ack;
+    wire [NUM_DECODE_PATHWAYS*CHIP_ID_LEN-1:0] lq_pop_chip_id;
+    wire [NUM_DECODE_PATHWAYS-1:0] lq_pop_request;
+    wire [NUM_DECODE_PATHWAYS-1:0] lq_pop_ack;
     wire [LOOPBACK_MESSAGE_LEN-1:0] lq_pop_message;
     mrr_per_node_loopback_queue inst_loopback_queue (
         .clk(clk),
