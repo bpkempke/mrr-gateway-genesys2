@@ -83,6 +83,7 @@ fft_sync_ack,
 corr_wait_len,
 window_ram_write_en,
 window_ram_write_data,
+disable_sfo_it,
 reset_diagnostic_counter,
 readies,
 valids,
@@ -163,6 +164,7 @@ cfo_search_debug
     input [CORR_WAIT_LEN_LOG2-1:0] corr_wait_len;
     input window_ram_write_en;
     input [PRIMARY_FFT_WIDTH-1:0] window_ram_write_data;
+    input disable_sfo_it;
 
     //Debug stuff
     input reset_diagnostic_counter;
@@ -336,6 +338,7 @@ cfo_search_debug
                 .o_decoded_tready(o_decoded_tready[pathway_idx]),
                 .currently_decoding(currently_decoding[pathway_idx]),
                 .detector_reset(detector_reset[pathway_idx]),
+                .disable_sfo_it(disable_sfo_it),
                 .tx_en(tx_en[pathway_idx])
             );
 

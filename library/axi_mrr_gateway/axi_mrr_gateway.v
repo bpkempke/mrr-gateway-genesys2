@@ -1228,6 +1228,7 @@ module axi_mrr_gateway #(
   localparam SR_FILTERBOARD = 167;
   localparam SR_WINDOW_RAM = 170;
   localparam SR_FFT_MASK_LATCH = 171;
+  localparam SR_DISABLE_SFO_IT = 172;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1452,6 +1453,13 @@ module axi_mrr_gateway #(
   sr_fft_mask_latch (
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(), .changed(fft_mask_latch));
+
+  wire disable_sfo_it;
+  setting_reg #(
+      .my_addr(SR_DISABLE_SFO_IT), .awidth(8), .width(1), .at_reset(0))
+  sr_disable_sfo_it (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(), .changed(disable_sfo_it));
 
   //Filterboard outputs:
   // filterboard[0]:
@@ -1688,6 +1696,7 @@ module axi_mrr_gateway #(
         .corr_wait_len(corr_wait_len),
         .window_ram_write_en(window_ram_write_en),
         .window_ram_write_data(window_ram_write_data),
+        .disable_sfo_it(disable_sfo_it),
 
         //Debug stuff
         .reset_diagnostic_counter(reset_diagnostic_counter),
