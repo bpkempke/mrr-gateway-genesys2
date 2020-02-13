@@ -242,6 +242,8 @@ module mrr_loopback_bpk
                 pps_counter <= 0;
             end else begin
                 pps_counter <= pps_counter + 1;
+            end
+            if(pps_trigger && state == ST_READY) begin
                 pps_trigger <= 1'b0;
             end
 

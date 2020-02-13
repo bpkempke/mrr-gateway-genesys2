@@ -1459,7 +1459,7 @@ module axi_mrr_gateway #(
       .my_addr(SR_DISABLE_SFO_IT), .awidth(8), .width(1), .at_reset(0))
   sr_disable_sfo_it (
     .clk(ce_clk), .rst(ce_rst_in_sync),
-    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(), .changed(disable_sfo_it));
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(disable_sfo_it), .changed());
 
   //Filterboard outputs:
   // filterboard[0]:
