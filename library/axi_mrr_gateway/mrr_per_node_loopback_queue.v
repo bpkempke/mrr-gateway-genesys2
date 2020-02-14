@@ -22,11 +22,9 @@
 // Revision: 1.0
 //
 
-module mrr_per_node_loopback_queue(clk, rst, pop_chip_id, pop_request, pop_ack, pop_message, push_chip_id, push_request, push_message, push_ack)
+module mrr_per_node_loopback_queue(clk, rst, pop_chip_id, pop_request, pop_ack, pop_message, push_chip_id, push_request, push_message, push_ack);
 
 `include "mrr_params.vh"
-
-localparam LOOPBACK_QUEUE_COUNTER_LEN_LOG2 = 16;
 
 input clk;
 input rst;
@@ -76,10 +74,10 @@ reg pop_write_en;
 reg push_write_en;
 wire pop_read_valid;
 wire [LOOPBACK_MESSAGE_LEN+LOOPBACK_QUEUE_COUNTER_LEN_LOG2+CHIP_ID_LEN-1:0] push_read_unused;
-ram_2port @(.DWIDTH(LOOPBACK_QUEUE_COUNTER_LEN_LOG2+LOOBACK_MESSAGE_LEN+CHIP_ID_LEN+1), .AWIDTH(LOOPBACK_QUEUE_LEN_LOG2)) message_queue_ram (
+ram_2port #(.DWIDTH(LOOPBACK_QUEUE_COUNTER_LEN_LOG2+LOOPBACK_MESSAGE_LEN+CHIP_ID_LEN+1), .AWIDTH(LOOPBACK_QUEUE_LEN_LOG2)) message_queue_ram (
     .clka(clk),
     .ena(1'b1),
-    .wea(push_write_en)
+    .wea(push_write_en),
     .addra((push_write_en) ? last_push_idx : push_idx),
     .dia({1'b1,push_counter,push_chip_id_latched,push_message_latched}),
     .doa({push_read_valid,push_read_unused}),
@@ -89,7 +87,7 @@ ram_2port @(.DWIDTH(LOOPBACK_QUEUE_COUNTER_LEN_LOG2+LOOBACK_MESSAGE_LEN+CHIP_ID_
     .web(pop_write_en),
     .addrb((pop_write_en) ? pop_search_idx : pop_idx),
     .dib(0),
-    .dob({pop_read_valid,pop_read_counter,pop_read_chip_id,pop_read_message)
+    .dob({pop_read_valid,pop_read_counter,pop_read_chip_id,pop_read_message})
 );
 
 reg [3:0] push_state;
@@ -253,3 +251,5 @@ always @* begin
         end
     endcase
 end
+
+endmodule

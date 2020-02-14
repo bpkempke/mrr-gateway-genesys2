@@ -41,7 +41,8 @@ adi_ip_files axi_mrr_gateway [list \
   "mrr_cfo_fft_interpreter.v" \
   "mrr_dram_fft_buffer.v" \
   "mrr_prio_encoder.v" \
-  "sfo_fft_correlator.v" ]
+  "sfo_fft_correlator.v" \
+  "mrr_per_node_loopback_queue.v" ]
 
 generate_target {all} [get_files ip/axi_fft_un/axi_fft_un.xci]
 generate_target {all} [get_files ip/fifo_short_2clk/fifo_short_2clk.xci]
