@@ -1157,6 +1157,7 @@ always @* begin
             //Every time SECONDARY_FFT_LEN samples have been 
             // stored, kick off the SFO search (secondary FFT)
             cfo_index_reset = 1'b1;
+            blank_highest_corr = 1'b1;
             reset_state = 1'b1;
             reset_dram_ctr = 1'b1;
             correlation_search_reset = 1'b1;
