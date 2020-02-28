@@ -237,7 +237,7 @@ ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2+CORR_METADATA_WIDTH), .AWIDT
     .ena(1'b1),
     .wea(blank_highest_corr | o_corr_tvalid),
     .addra((blank_highest_corr) ? highest_corr_idx : cfo_index),
-    .dia((blank_highest_corr) ? 0 : {metadata_max,corr_sfo_max,corr_max}),
+    .dia((blank_highest_corr) ? 0 : {metadata_max,corr_sfo_max,((primary_fft_mask_shift[0]) ? corr_max : 32'd0)}),
     .doa(),
 
     .clkb(clk),
@@ -261,7 +261,7 @@ always @(posedge clk) begin
             highest_corr <= 0;
             highest_corr_triggered_threshold <= 1'b0;
         end else if(search_highest_corr) begin
-            if(max_corr_rddata > highest_corr && primary_fft_mask_shift[0]) begin
+            if(max_corr_rddata > highest_corr) begin
                 highest_corr <= max_corr_rddata;
                 highest_corr_idx <= cfo_index_last;
                 highest_corr_sfo_idx <= max_corr_sfo_idx;
