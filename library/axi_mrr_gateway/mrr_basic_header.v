@@ -70,7 +70,6 @@ mf_accum_len,
 mf_settings_changed,
 wait_step,
 cur_time,
-primary_fft_mask,
 trigger_cfo_sfo_search,
 iq_sync_req,
 iq_sync_latest,
@@ -84,6 +83,9 @@ corr_wait_len,
 window_ram_write_en,
 window_ram_write_data,
 disable_sfo_it,
+corr_div_ram_data,
+corr_div_ram_write,
+corr_div_ram_reset,
 reset_diagnostic_counter,
 readies,
 valids,
@@ -151,7 +153,6 @@ cfo_search_debug
     input mf_settings_changed;
     input [15:0] wait_step;
     input [63:0] cur_time;
-    input [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask;
     input trigger_cfo_sfo_search;
     output iq_sync_req;
     output iq_sync_latest;
@@ -165,6 +166,9 @@ cfo_search_debug
     input window_ram_write_en;
     input [PRIMARY_FFT_WIDTH-1:0] window_ram_write_data;
     input disable_sfo_it;
+    input [CORR_WIDTH-1:0] corr_div_ram_data;
+    input corr_div_ram_write;
+    input corr_div_ram_reset;
 
     //Debug stuff
     input reset_diagnostic_counter;
@@ -245,7 +249,6 @@ cfo_search_debug
         .threshold_in(threshold_in),
         .detector_reset(detector_reset),
         .currently_decoding(currently_decoding),
-        .primary_fft_mask(primary_fft_mask),
         .es_final(es),
         .out_assignment_corr(cfo_assignment_corr),
         .out_assignment_metadata(cfo_assignment_metadata),
@@ -269,6 +272,9 @@ cfo_search_debug
         .reset_diagnostic_counter(reset_diagnostic_counter),
         .window_ram_write_en(window_ram_write_en),
         .window_ram_write_data(window_ram_write_data),
+        .corr_div_ram_data(corr_div_ram_data),
+        .corr_div_ram_write(corr_div_ram_write),
+        .corr_div_ram_reset(corr_div_ram_reset),
         .debug(cfo_search_debug)
     ); 
 

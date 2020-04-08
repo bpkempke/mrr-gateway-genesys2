@@ -12,7 +12,7 @@ module sfo_fft_correlator
 #(
     parameter FFT_LEN_LOG2=9,
     parameter POWER_WIDTH=16
-)(clk, reset, sfo_int_part, sfo_frac_part, setting_num_harmonics, correlation_reset, correlation_update, fft_mag_in, metadata_out, correlation_out, correlation_out_valid);
+)(clk, reset, sfo_int_part, sfo_frac_part, setting_num_harmonics, sfo_divisor, correlation_reset, correlation_update, fft_mag_in, metadata_out, correlation_out, correlation_out_valid);
 
 `include "mrr_params.vh"
 
@@ -21,6 +21,7 @@ input reset;
 input [SFO_INT_WIDTH-1:0] sfo_int_part;
 input [SFO_FRAC_WIDTH-1:0] sfo_frac_part;
 input [NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
+input [POWER_WIDTH-1:0] sfo_divisor;
 input correlation_reset;
 input correlation_update;
 input [POWER_WIDTH-1:0] fft_mag_in;
@@ -49,7 +50,7 @@ divide_uint32 divide_inst (
   .s_axis_divisor_tvalid(divide_in_valid),
   .s_axis_divisor_tready(),
   .s_axis_divisor_tlast(1'b0),
-  .s_axis_divisor_tdata((correlation_denominator[POWER_WIDTH-1:0] == 0) ? 1 : correlation_denominator[POWER_WIDTH-1:0]),
+  .s_axis_divisor_tdata(sfo_divisor),
   .s_axis_dividend_tvalid(divide_in_valid),
   .s_axis_dividend_tready(),
   .s_axis_dividend_tlast(1'b0),

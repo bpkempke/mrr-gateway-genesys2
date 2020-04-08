@@ -69,7 +69,6 @@ mf_accum_len,
 mf_settings_changed,
 trigger_search,
 threshold_in,
-primary_fft_mask,
 es_final,
 out_assignment_corr,
 out_assignment_metadata,
@@ -93,6 +92,9 @@ setting_secondary_fft_len_log2_changed,
 reset_diagnostic_counter,
 window_ram_write_en,
 window_ram_write_data,
+corr_div_ram_data,
+corr_div_ram_write,
+corr_div_ram_reset,
 debug
 );
 
@@ -146,7 +148,6 @@ input [7:0] mf_accum_len;
 input mf_settings_changed;
 input trigger_search;
 input [CORR_VAL_WIDTH-1:0] threshold_in;
-input [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask;
 output [ESAMP_WIDTH*NUM_DECODE_PATHWAYS-1:0] es_final;
 output [CORR_WIDTH*NUM_DECODE_PATHWAYS-1:0] out_assignment_corr;
 output [CORR_METADATA_WIDTH*NUM_DECODE_PATHWAYS-1:0] out_assignment_metadata;
@@ -170,6 +171,9 @@ input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2-1:0] setting_primary_fft_len_decim_mask;
 input reset_diagnostic_counter;
 input window_ram_write_en;
 input [PRIMARY_FFT_WIDTH-1:0] window_ram_write_data;
+input [CORR_WIDTH-1:0] corr_div_ram_data;
+input corr_div_ram_write;
+input corr_div_ram_reset;
 output [159:0] debug;
 
 //Historic primary FFT samples are stored in RAM.
@@ -192,7 +196,6 @@ reg load_from_dram;
 reg [PRIMARY_FFT_MAX_LEN_DECIM_LOG2+SECONDARY_FFT_MAX_LEN_LOG2-1:0] dram_load_ctr;
 
 reg [NUM_CORRELATORS_LOG2-1:0] correlator_shift_counter;
-reg [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask_shift;
 
 //Incoming samples are fed in bit-reversed order.  Undo this behavior through
 // reversing the write index.
@@ -217,6 +220,41 @@ localparam CORR_SHIFT_PHASE_READ = 1;
 localparam CORR_SHIFT_PHASE_READ2 = 2;
 localparam CORR_SHIFT_PHASE_WRITE = 4;
 
+//A separate divisor is used for each CFO bin.  This RAM stores these divisors
+//which are separately communicated by the host application.
+reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] corr_div_ram_write_addr;
+wire [CORR_WIDTH-1:0] corr_div_ram_read_data;
+ram_2port #(.DWIDTH(CORR_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) corr_div_ram (
+    //Dedicated write port
+    .clka(clk),
+    .ena(1'b1),
+    .wea(corr_div_ram_write),
+    .addra(corr_div_ram_write_addr),
+    .dia(corr_div_ram_data),
+    .doa(),
+
+    //Dedicated recall/read port
+    .clkb(clk),
+    .enb(1'b1),
+    .web(1'b0),
+    .addrb(cfo_index_reversed),
+    .dib(),
+    .dob(corr_div_ram_read_data),
+);
+
+//Logic for controlling the correlation divisor RAM write address
+always @(posedge clk) begin
+    if(rst) begin
+        corr_div_ram_write_addr <= 0;
+    end else begin
+        if(corr_div_ram_reset) begin
+            corr_div_ram_write_addr <= 0;
+        end else if(corr_div_ram_write) begin
+            corr_div_ram_write_addr <= corr_div_ram_write_addr + 1;
+        end
+    end
+end
+
 //Keep track of correlation values so that we can sort it after it's generated
 wire [CORR_WIDTH-1:0] max_corr_rddata;
 reg blank_highest_corr;
@@ -237,7 +275,7 @@ ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2+CORR_METADATA_WIDTH), .AWIDT
     .ena(1'b1),
     .wea(blank_highest_corr | o_corr_tvalid),
     .addra((blank_highest_corr) ? highest_corr_idx : cfo_index),
-    .dia((blank_highest_corr) ? 0 : {metadata_max,corr_sfo_max,((primary_fft_mask_shift[0]) ? corr_max : 32'd0)}),
+    .dia((blank_highest_corr) ? 0 : {metadata_max,corr_sfo_max,corr_max}),//TODO: This is where the primary_fft_mask logic was before it was stripped out
     .doa(),
 
     .clkb(clk),
@@ -655,6 +693,7 @@ generate
             .sfo_int_part(setting_sfo_int[(correlator_idx+1)*SFO_INT_WIDTH-1-:SFO_INT_WIDTH]),
             .sfo_frac_part(setting_sfo_frac[(correlator_idx+1)*SFO_FRAC_WIDTH-1-:SFO_FRAC_WIDTH]),
             .setting_num_harmonics(setting_num_harmonics),
+            .sfo_divisor(corr_div_ram_read_data),
             .correlation_reset(correlators_reset),
             .correlation_update(correlation_update),
             .fft_mag_in(mag_phase_o_tdata),
@@ -978,7 +1017,6 @@ always @(posedge clk) begin
         correlator_shift_counter <= 0;
         correlators_reset_last <= 1'b0;
         primary_fft_write_idx <= 0;
-        primary_fft_mask_shift <= 0;
         secondary_fft_write_idx <= 0;
         correlator_shift_phase <= CORR_SHIFT_PHASE_INCR;
         dram_load_ctr <= 0;
@@ -1097,10 +1135,8 @@ always @(posedge clk) begin
 
         if(cfo_index_reset) begin
             cfo_index_reversed <= 0;
-            primary_fft_mask_shift <= primary_fft_mask;
         end else if(cfo_index_incr) begin
             cfo_index_reversed <= cfo_index_reversed + 1;
-            primary_fft_mask_shift <= {primary_fft_mask_shift[0], primary_fft_mask_shift[PRIMARY_FFT_MAX_LEN-1:1]};
         end
 
         for(idx=0; idx<NUM_DECODE_PATHWAYS; idx=idx+1) begin
