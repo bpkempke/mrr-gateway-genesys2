@@ -276,8 +276,6 @@ module axi_mrr_gateway #(
 
   //out_decoded_tlast,7'd0,out_decoded_tdata}),
   //out_decoded_tvalid
-  localparam NUM_MUX_CHANNELS = 1+NUM_DECODE_PATHWAYS;
-  localparam NUM_MUX_CHANNELS_LOG2 = 3; //TODO: How to calculate this?!
   wire [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_tvalids;
   reg [NUM_MUX_CHANNELS-1:0] dpti_fifo_pre_treadies;
   wire [39:0] dpti_fifo_pre_tdatas [NUM_MUX_CHANNELS-1:0];
@@ -1230,6 +1228,7 @@ module axi_mrr_gateway #(
   localparam SR_DISABLE_SFO_IT = 172;
   localparam SR_CORR_DIV_RAM = 173;
   localparam SR_CORR_DIV_RAM_RESET = 174;
+  localparam SR_CFO_SEARCH_DEBUG = 175;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1495,6 +1494,13 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(), .changed(corr_div_ram_reset));
 
+  wire [31:0] cfo_search_debug_in;
+  setting_reg #(
+     .my_addr(SR_CFO_SEARCH_DEBUG), .awidth(8), .width(32), .at_reset(0))
+  sr_cfo_search_debug (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(cfo_search_debug_in), .changed());
+
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
   reg [SFO_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_frac;
@@ -1687,6 +1693,7 @@ module axi_mrr_gateway #(
         .reset_diagnostic_counter(reset_diagnostic_counter),
         .readies(mrr_basic_readies),
         .valids(mrr_basic_valids),
+        .cfo_search_debug_in(cfo_search_debug_in),
         .cfo_search_debug(cfo_search_debug)
   );
 

@@ -95,6 +95,7 @@ window_ram_write_data,
 corr_div_ram_data,
 corr_div_ram_write,
 corr_div_ram_reset,
+debug_in,
 debug
 );
 
@@ -174,6 +175,7 @@ input [PRIMARY_FFT_WIDTH-1:0] window_ram_write_data;
 input [CORR_WIDTH-1:0] corr_div_ram_data;
 input corr_div_ram_write;
 input corr_div_ram_reset;
+input [31:0] debug_in;
 output [159:0] debug;
 
 //Historic primary FFT samples are stored in RAM.
@@ -239,7 +241,7 @@ ram_2port #(.DWIDTH(CORR_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) corr_div_ram
     .web(1'b0),
     .addrb(cfo_index_reversed),
     .dib(),
-    .dob(corr_div_ram_read_data),
+    .dob(corr_div_ram_read_data)
 );
 
 //Logic for controlling the correlation divisor RAM write address
@@ -312,11 +314,12 @@ end
 
 //Output correlator values in real-time
 reg [CORR_METADATA_WIDTH-1:0] metadata_temp;
+reg [3:0] corr_counter;
 reg corr_valid;
 wire first_cfo_flag = (cfo_index == 0);
-assign o_corr_tdata = {first_cfo_flag, corr_max[30:0]};
+assign o_corr_tdata = (corr_counter == 0) ? {first_cfo_flag, metadata_max[62:32]} : shift_read;
 assign o_corr_tvalid = corr_valid;
-assign o_corr_tlast = 1'b1;//(cfo_index == setting_primary_fft_len-1);
+assign o_corr_tlast = (corr_counter >= 1);//(cfo_index == setting_primary_fft_len-1);
 
 //Only output max across correlators
 wire corr_valid_temp = (correlator_shift_out & (correlator_shift_phase == CORR_SHIFT_PHASE_WRITE));
@@ -331,9 +334,9 @@ always @(posedge clk) begin
         corr_sfo_temp <= 0;
         corr_temp <= 0;
         corr_valid <= 1'b0;
+        corr_counter <= 0;
         metadata_temp <= 0;
     end else begin
-        corr_valid <= 1'b0;
         if(corr_valid_temp) begin
             corr_temp <= corr_max_temp;
             corr_sfo_temp <= corr_sfo_max_temp;
@@ -346,7 +349,12 @@ always @(posedge clk) begin
                 corr_temp <= 0;
                 metadata_temp <= 0;
                 corr_valid <= 1'b1;
+                corr_counter <= 0;
             end
+        end else if(corr_counter < 1) begin
+            corr_counter <= corr_counter + 1;
+        end else begin
+            corr_valid <= 1'b0;
         end
     end
 end
@@ -672,10 +680,38 @@ endgenerate
 //TODO: Only feed in the first half of the FFT
 reg correlation_search_reset;
 reg correlators_reset, correlators_reset_last;
-wire correlation_update = mag_phase_o_tvalid;//TODO:??? & ~correlators_reset_last; //TODO: This is a bug with magsq block... should revisit since this is a bug in the magsq block...
+wire correlation_update = mag_phase_o_tvalid & mag_phase_o_tready;//TODO:??? & ~correlators_reset_last; //TODO: This is a bug with magsq block... should revisit since this is a bug in the magsq block...
 wire [CORR_MANTISSA_WIDTH-1:0] correlation_out [NUM_CORRELATORS-1:0];
 wire [CORR_METADATA_WIDTH-1:0] metadata_out [NUM_CORRELATORS-1:0];
 wire [NUM_CORRELATORS-1:0] correlation_out_valid;
+
+//DEBUG 1: Look at output of fft_shift
+//assign o_corr_tdata = {mag_phase_o_tlast,mag_phase_o_tready,mag_phase_o_tdata[29:0]};
+//assign o_corr_tvalid = (cfo_index == 144) && correlation_update;
+//assign o_corr_tlast = mag_phase_o_tlast;
+
+//DEBUG 2: Look at output of SFO FFT
+//assign o_corr_tdata = fft_abs_tdata[31:0];
+//assign o_corr_tvalid = (cfo_index == 144) && fft_abs_tvalid;
+//assign o_corr_tlast = fft_abs_tlast;
+
+//DEBUG 3: Look at input to SFO FFT
+//reg [9:0] fft_idx;
+//assign o_corr_tdata = {fft_i_tlast,fft_i_tdata};
+//assign o_corr_tvalid = (fft_idx == debug_in[9:0]) && fft_i_tready && fft_i_tvalid;
+//assign o_corr_tlast = fft_i_tlast;
+//
+//always @(posedge clk) begin
+//    if(rst) begin
+//        fft_idx <= 0;
+//    end else begin
+//        if(cfo_index_reset) begin
+//            fft_idx <= 0;
+//        end else if(fft_i_tlast && fft_i_tvalid && fft_i_tready) begin
+//            fft_idx <= fft_idx + 1;
+//        end
+//    end
+//end
 
 //Directly correlated to the correlator assignemnts are the corresponding n1,n2
 //resampler assignments (architected as a ROM)

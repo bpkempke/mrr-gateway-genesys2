@@ -89,6 +89,7 @@ corr_div_ram_reset,
 reset_diagnostic_counter,
 readies,
 valids,
+cfo_search_debug_in,
 cfo_search_debug
 );
 
@@ -174,6 +175,7 @@ cfo_search_debug
     input reset_diagnostic_counter;
     output [5:0] readies;
     output [5:0] valids;
+    input [31:0] cfo_search_debug_in;
     output [159:0] cfo_search_debug;
 
     /***************Internal Signal Assignment*************/
@@ -275,6 +277,7 @@ cfo_search_debug
         .corr_div_ram_data(corr_div_ram_data),
         .corr_div_ram_write(corr_div_ram_write),
         .corr_div_ram_reset(corr_div_ram_reset),
+        .debug_in(cfo_search_debug_in),
         .debug(cfo_search_debug)
     ); 
 
