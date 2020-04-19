@@ -1208,6 +1208,7 @@ module axi_mrr_gateway #(
   localparam SR_RECHARGE_LEN = 144;
   localparam SR_MF_NUM_ACCUM = 146;
   localparam SR_MF_ACCUM_LEN = 147;
+  localparam SR_PRIMARY_FFT_MASK = 150;
   localparam SR_PAUSE_BLOCK = 151;
   localparam SR_NUM_HARMONICS = 152;
   localparam SR_SFO_INT = 153;
@@ -1312,6 +1313,15 @@ module axi_mrr_gateway #(
       .strobe(set_stb), .addr(set_addr), .in(set_data), .out(mf_accum_len), .changed(mf_accum_len_changed));
 
   wire mf_settings_changed = mf_num_accum_changed | mf_accum_len_changed;
+
+  wire [31:0] primary_fft_mask_temp;
+  wire primary_fft_mask_shift;
+  setting_reg #(
+      .my_addr(SR_PRIMARY_FFT_MASK), .awidth(8), .width(32), .at_reset(32'hFFFFFFFF))
+  sr_pfm (
+      .clk(ce_clk), .rst(ce_rst),
+      .strobe(set_stb), .addr(set_addr), .in(set_data), .out(primary_fft_mask_temp), .changed(primary_fft_mask_shift));
+
 
   setting_reg #(
     .my_addr(SR_PAUSE_BLOCK), .awidth(8), .width(1), .at_reset(0))
@@ -1438,6 +1448,13 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out({reset_diagnostic_counter,enable,soft_reset}), .changed());
 
+  wire fft_mask_latch;
+  setting_reg #(
+      .my_addr(SR_FFT_MASK_LATCH), .awidth(8), .width(1), .at_reset(0))
+  sr_fft_mask_latch (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(), .changed(fft_mask_latch));
+
   wire disable_sfo_it;
   setting_reg #(
       .my_addr(SR_DISABLE_SFO_IT), .awidth(8), .width(1), .at_reset(0))
@@ -1528,6 +1545,22 @@ module axi_mrr_gateway #(
     end
   end
 
+  reg [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask_stage;
+  reg [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask;
+  always @(posedge ce_clk) begin
+    if(ce_rst) begin
+      primary_fft_mask_stage <= {{PRIMARY_FFT_MAX_LEN}{1'b1}};
+      primary_fft_mask <= {{PRIMARY_FFT_MAX_LEN}{1'b1}};
+    end else begin
+      if(primary_fft_mask_shift) begin
+        primary_fft_mask_stage <= {primary_fft_mask_stage[PRIMARY_FFT_MAX_LEN-32-1:0],primary_fft_mask_temp};
+      end
+      if(fft_mask_latch) begin
+        primary_fft_mask <= primary_fft_mask_stage;
+      end
+    end
+  end
+
   //Debug counter for TX
   reg [15:0] tx_counter;
   always @(posedge ce_clk) begin
@@ -1584,6 +1617,7 @@ module axi_mrr_gateway #(
       21 : rb_data <= cfo_search_debug[63-:32];
       22 : rb_data <= cfo_search_debug[31-:32];
       23 : rb_data <= {32'h0,4'h0,GIT_VERSION};
+      24 : rb_data <= primary_fft_mask_temp;
       default        : rb_data <= 64'h0BADC0DE0BADC0DE;
     endcase
   end
@@ -1672,6 +1706,7 @@ module axi_mrr_gateway #(
         .mf_accum_len(mf_accum_len),
         .mf_settings_changed(mf_settings_changed),
 	.wait_step(wait_step),
+        .primary_fft_mask(primary_fft_mask),
         .trigger_cfo_sfo_search(trigger_cfo_sfo_search),
         .iq_sync_req(iq_sync_req),
         .iq_sync_latest(iq_sync_latest),
@@ -1701,6 +1736,7 @@ module axi_mrr_gateway #(
 
 //assign debug = {PROG_D,PROG_CLKO,PROG_OEN,PROG_RDN,PROG_RXFN,PROG_SIWUN,PROG_SPIEN,PROG_TXEN,PROG_WRN};
 assign debug = {cfo_search_debug[7:0], 2'd0, dpti_fifo_pre_state, dpti_fifo_pre_tvalids, dpti_fifo_pre_treadies};
+//assign debug = primary_fft_mask_temp[15:0];
 
   wire [32*NUM_DECODE_PATHWAYS-1:0] out_decoded_buff_tdata;
   wire [NUM_DECODE_PATHWAYS-1:0] out_decoded_buff_tlast;

@@ -69,6 +69,7 @@ mf_accum_len,
 mf_settings_changed,
 trigger_search,
 threshold_in,
+primary_fft_mask,
 es_final,
 out_assignment_corr,
 out_assignment_metadata,
@@ -149,6 +150,7 @@ input [7:0] mf_accum_len;
 input mf_settings_changed;
 input trigger_search;
 input [CORR_VAL_WIDTH-1:0] threshold_in;
+input [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask;
 output [ESAMP_WIDTH*NUM_DECODE_PATHWAYS-1:0] es_final;
 output [CORR_WIDTH*NUM_DECODE_PATHWAYS-1:0] out_assignment_corr;
 output [CORR_METADATA_WIDTH*NUM_DECODE_PATHWAYS-1:0] out_assignment_metadata;
@@ -198,6 +200,7 @@ reg load_from_dram;
 reg [PRIMARY_FFT_MAX_LEN_DECIM_LOG2+SECONDARY_FFT_MAX_LEN_LOG2-1:0] dram_load_ctr;
 
 reg [NUM_CORRELATORS_LOG2-1:0] correlator_shift_counter;
+reg [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask_shift;
 
 //Incoming samples are fed in bit-reversed order.  Undo this behavior through
 // reversing the write index.
@@ -277,7 +280,7 @@ ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2+CORR_METADATA_WIDTH), .AWIDT
     .ena(1'b1),
     .wea(blank_highest_corr | o_corr_tvalid),
     .addra((blank_highest_corr) ? highest_corr_idx : cfo_index),
-    .dia((blank_highest_corr) ? 0 : {metadata_max,corr_sfo_max,corr_max}),//TODO: This is where the primary_fft_mask logic was before it was stripped out
+    .dia((blank_highest_corr) ? 0 : {metadata_max,corr_sfo_max,((primary_fft_mask_shift[0]) ? corr_max : 32'd0)}),
     .doa(),
 
     .clkb(clk),
@@ -733,6 +736,7 @@ generate
             .correlation_reset(correlators_reset),
             .correlation_update(correlation_update),
             .fft_mag_in(mag_phase_o_tdata),
+            .fft_mag_exponent_in(shift_read),
             .correlation_out(correlation_out[correlator_idx]),
             .metadata_out(metadata_out[correlator_idx]),
             .correlation_out_valid(correlation_out_valid[correlator_idx])
@@ -1053,6 +1057,7 @@ always @(posedge clk) begin
         correlator_shift_counter <= 0;
         correlators_reset_last <= 1'b0;
         primary_fft_write_idx <= 0;
+        primary_fft_mask_shift <= 0;
         secondary_fft_write_idx <= 0;
         correlator_shift_phase <= CORR_SHIFT_PHASE_INCR;
         dram_load_ctr <= 0;
@@ -1171,8 +1176,10 @@ always @(posedge clk) begin
 
         if(cfo_index_reset) begin
             cfo_index_reversed <= 0;
+            primary_fft_mask_shift <= primary_fft_mask;
         end else if(cfo_index_incr) begin
             cfo_index_reversed <= cfo_index_reversed + 1;
+            primary_fft_mask_shift <= {primary_fft_mask_shift[0], primary_fft_mask_shift[PRIMARY_FFT_MAX_LEN-1:1]};
         end
 
         for(idx=0; idx<NUM_DECODE_PATHWAYS; idx=idx+1) begin

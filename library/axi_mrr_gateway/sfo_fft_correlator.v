@@ -12,7 +12,7 @@ module sfo_fft_correlator
 #(
     parameter FFT_LEN_LOG2=9,
     parameter POWER_WIDTH=16
-)(clk, reset, sfo_int_part, sfo_frac_part, setting_num_harmonics, sfo_divisor, correlation_reset, correlation_update, fft_mag_in, metadata_out, correlation_out, correlation_out_valid);
+)(clk, reset, sfo_int_part, sfo_frac_part, setting_num_harmonics, sfo_divisor, correlation_reset, correlation_update, fft_mag_in, fft_mag_exponent_in, metadata_out, correlation_out, correlation_out_valid);
 
 `include "mrr_params.vh"
 
@@ -25,6 +25,7 @@ input [POWER_WIDTH-1:0] sfo_divisor;
 input correlation_reset;
 input correlation_update;
 input [POWER_WIDTH-1:0] fft_mag_in;
+input [FFT_SHIFT_WIDTH-1:0] fft_mag_exponent_in;
 output [CORR_MANTISSA_WIDTH-1:0] correlation_out;
 output [POWER_WIDTH*2-1:0] metadata_out;
 output reg correlation_out_valid;
@@ -36,6 +37,10 @@ reg [FFT_LEN_LOG2-1:0] harmonic_counter;
 reg [SFO_FRAC_WIDTH-1:0] sfo_frac;
 reg [POWER_WIDTH+NUM_HARMONICS_LOG2-1:0] correlation_numerator, correlation_denominator;
 reg [SKIRT_WIDTH_LOG2:0] bins_since_last_harmonic;
+
+//Scale the divisor depending on what the exponent is for fft_mag_in
+wire [POWER_WIDTH-1:0] divisor_shifted = sfo_divisor >> fft_mag_exponent_in;
+wire [POWER_WIDTH-1:0] divisor_shifted_min = (divisor_shifted < 1) ? 1 : divisor_shifted;
 
 // Divide I part by divisor from settings register
 wire [31:0] divide_result_int;
@@ -50,7 +55,7 @@ divide_uint32 divide_inst (
   .s_axis_divisor_tvalid(divide_in_valid),
   .s_axis_divisor_tready(),
   .s_axis_divisor_tlast(1'b0),
-  .s_axis_divisor_tdata(sfo_divisor),
+  .s_axis_divisor_tdata(divisor_shifted_min),
   .s_axis_dividend_tvalid(divide_in_valid),
   .s_axis_dividend_tready(),
   .s_axis_dividend_tlast(1'b0),
