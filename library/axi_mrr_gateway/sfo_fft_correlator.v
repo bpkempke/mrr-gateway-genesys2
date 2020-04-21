@@ -65,7 +65,7 @@ divide_uint32 divide_inst (
   .m_axis_dout_tdata({divide_result_int,divide_result_frac}));
 
 assign correlation_out = {divide_result_int_reg[12-:13],divide_result_frac_reg[31-:13]};
-assign metadata_out = {correlation_numerator[POWER_WIDTH-1:0],correlation_denominator[POWER_WIDTH-1:0]};
+assign metadata_out = {correlation_numerator[POWER_WIDTH-1:0],sfo_divisor[POWER_WIDTH-1:0]};
 
 always @(posedge clk) begin
     if(reset | correlation_reset) begin

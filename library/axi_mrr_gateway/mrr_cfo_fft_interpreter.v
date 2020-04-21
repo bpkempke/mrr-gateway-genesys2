@@ -320,9 +320,10 @@ reg [CORR_METADATA_WIDTH-1:0] metadata_temp;
 reg [3:0] corr_counter;
 reg corr_valid;
 wire first_cfo_flag = (cfo_index == 0);
-assign o_corr_tdata = (corr_counter == 0) ? {first_cfo_flag, metadata_max[62:32]} : shift_read;
+assign o_corr_tdata = (corr_counter == 0) ? {first_cfo_flag, metadata_max[62:32]} : 
+                      (corr_counter == 1) ? shift_read : metadata_max[31:0];
 assign o_corr_tvalid = corr_valid;
-assign o_corr_tlast = (corr_counter >= 1);//(cfo_index == setting_primary_fft_len-1);
+assign o_corr_tlast = (corr_counter >= 2);//(cfo_index == setting_primary_fft_len-1);
 
 //Only output max across correlators
 wire corr_valid_temp = (correlator_shift_out & (correlator_shift_phase == CORR_SHIFT_PHASE_WRITE));
@@ -354,7 +355,7 @@ always @(posedge clk) begin
                 corr_valid <= 1'b1;
                 corr_counter <= 0;
             end
-        end else if(corr_counter < 1) begin
+        end else if(corr_counter < 2) begin
             corr_counter <= corr_counter + 1;
         end else begin
             corr_valid <= 1'b0;
