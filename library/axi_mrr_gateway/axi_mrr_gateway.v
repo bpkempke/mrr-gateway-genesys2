@@ -1230,6 +1230,7 @@ module axi_mrr_gateway #(
   localparam SR_CORR_DIV_RAM = 173;
   localparam SR_CORR_DIV_RAM_RESET = 174;
   localparam SR_CFO_SEARCH_DEBUG = 175;
+  localparam SR_CORR_THRE = 176;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1244,6 +1245,14 @@ module axi_mrr_gateway #(
   sr_thre (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(threshold), .changed());
+
+  wire [CORR_WIDTH-1:0] corr_threshold;
+
+  setting_reg #(
+    .my_addr(SR_CORR_THRE), .awidth(8), .width(CORR_WIDTH), .at_reset(250))
+  sr_corr_thre (
+    .clk(ce_clk), .rst(ce_rst),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(corr_threshold), .changed());
 
   wire [7:0] num_payload_bits;
 
@@ -1650,6 +1659,7 @@ module axi_mrr_gateway #(
 	.clk(ce_clk),
 	.rst(ce_rst | clear),
 	.threshold_in(threshold),
+	.corr_threshold_in(corr_threshold),
         .setting_num_harmonics(setting_num_harmonics),
         .setting_sfo_frac(setting_sfo_frac),
         .setting_sfo_int(setting_sfo_int),

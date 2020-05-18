@@ -69,6 +69,7 @@ mf_accum_len,
 mf_settings_changed,
 trigger_search,
 threshold_in,
+corr_threshold_in,
 primary_fft_mask,
 es_final,
 out_assignment_corr,
@@ -150,6 +151,7 @@ input [7:0] mf_accum_len;
 input mf_settings_changed;
 input trigger_search;
 input [CORR_VAL_WIDTH-1:0] threshold_in;
+input [CORR_VAL_WIDTH-1:0] corr_threshold_in;
 input [PRIMARY_FFT_MAX_LEN-1:0] primary_fft_mask;
 output [ESAMP_WIDTH*NUM_DECODE_PATHWAYS-1:0] es_final;
 output [CORR_WIDTH*NUM_DECODE_PATHWAYS-1:0] out_assignment_corr;
@@ -216,9 +218,9 @@ reg correlator_shift_out;
 reg correlator_shift_reset;
 wire [FFT_SHIFT_WIDTH-1:0] shift_read;
 reg [3:0] correlator_shift_phase;
-reg [CORR_MANTISSA_WIDTH-1:0] correlation_out_shift [NUM_CORRELATORS-1:0];
+reg [CORR_MANTISSA_WIDTH:0] correlation_out_shift [NUM_CORRELATORS-1:0];
 reg [CORR_METADATA_WIDTH-1:0] metadata_out_shift [NUM_CORRELATORS-1:0];
-wire [CORR_WIDTH-1:0] cur_corr = {{{CORR_WIDTH-CORR_MANTISSA_WIDTH}{1'b0}},correlation_out_shift[0]};
+wire [CORR_WIDTH:0] cur_corr = {correlation_out_shift[0][26],{{CORR_WIDTH-CORR_MANTISSA_WIDTH}{1'b0}},correlation_out_shift[0][25:0]}; //TODO: This is pretty ugly with bit 32 having a separate meaning than 31:0.  Should probably separate these at some point
 wire [CORR_METADATA_WIDTH-1:0] cur_metadata = metadata_out_shift[0];
 localparam CORR_SHIFT_PHASE_INCR = 0;
 localparam CORR_SHIFT_PHASE_READ = 1;
@@ -261,21 +263,21 @@ always @(posedge clk) begin
 end
 
 //Keep track of correlation values so that we can sort it after it's generated
-wire [CORR_WIDTH-1:0] max_corr_rddata;
+wire [CORR_WIDTH:0] max_corr_rddata;
 reg blank_highest_corr;
 reg search_highest_corr;
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] cfo_index_last;
-reg [CORR_WIDTH-1:0] highest_corr;
+reg [CORR_WIDTH:0] highest_corr;
 reg [PRIMARY_FFT_MAX_LEN_LOG2-1:0] highest_corr_idx;
 reg [CORR_METADATA_WIDTH-1:0] metadata_max;
-reg [31:0] corr_max, corr_temp;
+reg [32:0] corr_max, corr_temp;
 reg highest_corr_triggered_threshold;
 wire [NUM_CORRELATORS_LOG2-1:0] max_corr_sfo_idx;
 wire [CORR_METADATA_WIDTH-1:0] max_metadata_rb;
 reg [NUM_CORRELATORS_LOG2-1:0] highest_corr_sfo_idx;
 reg [CORR_METADATA_WIDTH-1:0] highest_corr_metadata;
 reg [NUM_CORRELATORS_LOG2-1:0] corr_sfo_max, corr_sfo_temp;
-ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2+CORR_METADATA_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) max_corr_ram (
+ram_2port #(.DWIDTH(CORR_WIDTH+NUM_CORRELATORS_LOG2+CORR_METADATA_WIDTH+1), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) max_corr_ram (
     .clka(clk),
     .ena(1'b1),
     .wea(blank_highest_corr | o_corr_tvalid),
@@ -304,12 +306,12 @@ always @(posedge clk) begin
             highest_corr <= 0;
             highest_corr_triggered_threshold <= 1'b0;
         end else if(search_highest_corr) begin
-            if(max_corr_rddata > highest_corr) begin
+            if(max_corr_rddata[31:0] > highest_corr[31:0]) begin
                 highest_corr <= max_corr_rddata;
                 highest_corr_idx <= cfo_index_last;
                 highest_corr_sfo_idx <= max_corr_sfo_idx;
                 highest_corr_metadata <= max_metadata_rb;
-                highest_corr_triggered_threshold <= (max_corr_rddata > threshold_in);
+                highest_corr_triggered_threshold <= (max_corr_rddata > threshold_in) && (max_corr_rddata[32]);
             end
         end
     end
@@ -328,9 +330,9 @@ assign o_corr_tlast = (corr_counter >= 2);//(cfo_index == setting_primary_fft_le
 //Only output max across correlators
 wire corr_valid_temp = (correlator_shift_out & (correlator_shift_phase == CORR_SHIFT_PHASE_WRITE));
 wire corr_last_temp = (correlator_shift_counter == NUM_CORRELATORS-1);
-wire [31:0] corr_max_temp = (cur_corr > corr_temp) ? cur_corr : corr_temp;
-wire [NUM_CORRELATORS_LOG2-1:0] corr_sfo_max_temp = (cur_corr > corr_temp) ? correlator_shift_counter : corr_sfo_temp;
-wire [CORR_METADATA_WIDTH-1:0] metadata_max_temp = (cur_corr > corr_temp) ? cur_metadata : metadata_temp;
+wire [32:0] corr_max_temp = (cur_corr[31:0] > corr_temp[31:0]) ? cur_corr : corr_temp;
+wire [NUM_CORRELATORS_LOG2-1:0] corr_sfo_max_temp = (cur_corr[31:0] > corr_temp[31:0]) ? correlator_shift_counter : corr_sfo_temp;
+wire [CORR_METADATA_WIDTH-1:0] metadata_max_temp = (cur_corr[31:0] > corr_temp[31:0]) ? cur_metadata : metadata_temp;
 always @(posedge clk) begin
     if(rst) begin
         corr_max <= 0;
@@ -685,7 +687,7 @@ endgenerate
 reg correlation_search_reset;
 reg correlators_reset, correlators_reset_last;
 wire correlation_update = mag_phase_o_tvalid & mag_phase_o_tready;//TODO:??? & ~correlators_reset_last; //TODO: This is a bug with magsq block... should revisit since this is a bug in the magsq block...
-wire [CORR_MANTISSA_WIDTH-1:0] correlation_out [NUM_CORRELATORS-1:0];
+wire [CORR_MANTISSA_WIDTH:0] correlation_out [NUM_CORRELATORS-1:0];
 wire [CORR_METADATA_WIDTH-1:0] metadata_out [NUM_CORRELATORS-1:0];
 wire [NUM_CORRELATORS-1:0] correlation_out_valid;
 
@@ -734,6 +736,7 @@ generate
             .sfo_frac_part(setting_sfo_frac[(correlator_idx+1)*SFO_FRAC_WIDTH-1-:SFO_FRAC_WIDTH]),
             .setting_num_harmonics(setting_num_harmonics),
             .sfo_divisor(corr_div_ram_read_data),
+            .corr_threshold(corr_threshold_in),
             .correlation_reset(correlators_reset),
             .correlation_update(correlation_update),
             .fft_mag_in(mag_phase_o_tdata),
@@ -912,7 +915,7 @@ always @* begin
         ASSIGNMENT_STATE_FIND_PREEXISTING_PATHWAY: begin
             incr_occupied_idx = ~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < ASSIGNMENT_SKIRT_WIDTH) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < ASSIGNMENT_SKIRT_WIDTH));
             if(~incr_occupied_idx) begin
-                if(((highest_corr < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]) && (currently_decoding[occupied_idx] || recently_assigned[occupied_idx])) begin
+                if(((highest_corr[31:0] < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]) && (currently_decoding[occupied_idx] || recently_assigned[occupied_idx])) begin
                     next_assignment_state = ASSIGNMENT_STATE_DONE;
                 end else begin
                     next_assignment_state = ASSIGNMENT_STATE_ASSIGN_PATHWAY;
@@ -1188,7 +1191,7 @@ always @(posedge clk) begin
                 pathway_assignment_n1[idx] <= resample_n1_params_rom[highest_corr_sfo_idx];
                 pathway_assignment_n2[idx] <= resample_n2_params_rom[highest_corr_sfo_idx];
                 pathway_assignment_cfo_idx[idx] <= highest_corr_idx;
-                pathway_assignment_corr[idx] <= highest_corr;
+                pathway_assignment_corr[idx] <= highest_corr[31:0];
                 pathway_assignment_metadata[idx] <= highest_corr_metadata;
             end
  

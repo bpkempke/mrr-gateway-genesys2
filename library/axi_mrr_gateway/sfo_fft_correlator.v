@@ -12,7 +12,7 @@ module sfo_fft_correlator
 #(
     parameter FFT_LEN_LOG2=9,
     parameter POWER_WIDTH=16
-)(clk, reset, sfo_int_part, sfo_frac_part, setting_num_harmonics, sfo_divisor, correlation_reset, correlation_update, fft_mag_in, fft_mag_exponent_in, metadata_out, correlation_out, correlation_out_valid);
+)(clk, reset, sfo_int_part, sfo_frac_part, setting_num_harmonics, sfo_divisor, corr_threshold, correlation_reset, correlation_update, fft_mag_in, fft_mag_exponent_in, metadata_out, correlation_out, correlation_out_valid);
 
 `include "mrr_params.vh"
 
@@ -22,11 +22,12 @@ input [SFO_INT_WIDTH-1:0] sfo_int_part;
 input [SFO_FRAC_WIDTH-1:0] sfo_frac_part;
 input [NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
 input [POWER_WIDTH-1:0] sfo_divisor;
+input [POWER_WIDTH-1:0] corr_threshold;
 input correlation_reset;
 input correlation_update;
 input [POWER_WIDTH-1:0] fft_mag_in;
 input [FFT_SHIFT_WIDTH-1:0] fft_mag_exponent_in;
-output [CORR_MANTISSA_WIDTH-1:0] correlation_out;
+output [CORR_MANTISSA_WIDTH:0] correlation_out;
 output [POWER_WIDTH*2-1:0] metadata_out;
 output reg correlation_out_valid;
 
@@ -64,7 +65,29 @@ divide_uint32 divide_inst (
   .m_axis_dout_tready(1'b1),
   .m_axis_dout_tdata({divide_result_int,divide_result_frac}));
 
-assign correlation_out = {divide_result_int_reg[12-:13],divide_result_frac_reg[31-:13]};
+wire [31:0] corr_divide_result_int;
+wire [31:0] corr_divide_result_frac;
+reg [31:0] corr_divide_result_int_reg;
+reg [31:0] corr_divide_result_frac_reg;
+wire corr_divide_result_valid;
+divide_uint32 divide_corr_inst (
+  .aclk(clk),
+  .aresetn(~(reset | correlation_reset)),
+  .s_axis_divisor_tvalid(divide_in_valid),
+  .s_axis_divisor_tready(),
+  .s_axis_divisor_tlast(1'b0),
+  .s_axis_divisor_tdata((correlation_denominator[POWER_WIDTH-1:0] == 0) ? 1 : correlation_denominator[POWER_WIDTH-1:0]),
+  .s_axis_dividend_tvalid(divide_in_valid),
+  .s_axis_dividend_tready(),
+  .s_axis_dividend_tlast(1'b0),
+  .s_axis_dividend_tdata(correlation_numerator[POWER_WIDTH-1:0]),
+  .m_axis_dout_tvalid(corr_divide_result_valid),
+  .m_axis_dout_tready(1'b1),
+  .m_axis_dout_tdata({corr_divide_result_int,corr_divide_result_frac}));
+
+wire [CORR_MANTISSA_WIDTH-1:0] corr_divide_out = {corr_divide_result_int_reg[12-:13],corr_divide_result_frac_reg[31-:13]};
+wire corr_meets_threshold = (corr_divide_out > corr_threshold);
+assign correlation_out = {corr_meets_threshold,divide_result_int_reg[12-:13],divide_result_frac_reg[31-:13]};
 assign metadata_out = {correlation_numerator[POWER_WIDTH-1:0],sfo_divisor[POWER_WIDTH-1:0]};
 
 always @(posedge clk) begin
@@ -78,6 +101,10 @@ always @(posedge clk) begin
         divide_in_valid <= 1'b0;
         correlation_out_valid <= 1'b0;
         bins_since_last_harmonic <= SKIRT_WIDTH;
+        //divide_result_int_reg <= 0;
+        //divide_result_frac_reg <= 0;
+        //corr_divide_result_int_reg <= 0;
+        //corr_divide_result_frac_reg <= 0;
     end else begin
 	// Each incoming sample increments the FFT index by 1.  When this
 	// exceeds sfo_int, the correlation is updated along with sfo_int and
@@ -113,6 +140,10 @@ always @(posedge clk) begin
             divide_result_int_reg <= divide_result_int;
             divide_result_frac_reg <= divide_result_frac;
             correlation_out_valid <= 1'b1;
+        end
+        if(corr_divide_result_valid) begin
+            corr_divide_result_int_reg <= corr_divide_result_int;
+            corr_divide_result_frac_reg <= corr_divide_result_frac;
         end
     end
 end

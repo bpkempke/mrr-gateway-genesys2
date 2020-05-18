@@ -14,6 +14,7 @@ module mrr_basic_header
 clk,
 rst,
 threshold_in,
+corr_threshold_in,
 setting_num_harmonics,
 setting_sfo_frac,
 setting_sfo_int,
@@ -99,6 +100,7 @@ cfo_search_debug
     input clk;
     input rst;
     input [CORR_VAL_WIDTH-1:0] threshold_in;
+    input [CORR_VAL_WIDTH-1:0] corr_threshold_in;
     input [NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
     input [SFO_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_frac;
     input [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
@@ -251,6 +253,7 @@ cfo_search_debug
         .FFTDataInShiftIdx(i_tdata_fft_shift_idx),
         .FFTDataInShiftValid(i_tdata_fft_shift_valid),
         .threshold_in(threshold_in),
+        .corr_threshold_in(corr_threshold_in),
         .detector_reset(detector_reset),
         .currently_decoding(currently_decoding),
         .primary_fft_mask(primary_fft_mask),

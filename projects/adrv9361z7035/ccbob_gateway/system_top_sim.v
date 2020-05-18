@@ -153,6 +153,7 @@ module sim_top;
     force st1.i_system_wrapper.system_i.mrr_gateway.inst.threshold = 32'd25;
     force st1.i_system_wrapper.system_i.mrr_gateway.inst.window_ram_write_en = 1'b1;
     force st1.i_system_wrapper.system_i.mrr_gateway.inst.window_ram_write_data = 16'h7FFF;
+    force st1.i_system_wrapper.system_i.mrr_gateway.inst.mrr_basic_header_inst.inst_CFO.corr_div_ram_read_data = 0;
     force st1.gpio_o[47] = 1'b1;
     force st1.gpio_o[31] = 1'b1;
     #5000000 @(posedge sys_clk);
