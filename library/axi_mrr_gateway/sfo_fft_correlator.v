@@ -20,7 +20,7 @@ input clk;
 input reset;
 input [SFO_INT_WIDTH-1:0] sfo_int_part;
 input [SFO_FRAC_WIDTH-1:0] sfo_frac_part;
-input [NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
+input [MAX_NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
 input [POWER_WIDTH-1:0] sfo_divisor;
 input [POWER_WIDTH-1:0] corr_threshold;
 input correlation_reset;
@@ -36,7 +36,7 @@ reg [SFO_INT_WIDTH-1:0] sfo_int;
 reg [FFT_LEN_LOG2-1:0] fft_index;
 reg [FFT_LEN_LOG2-1:0] harmonic_counter;
 reg [SFO_FRAC_WIDTH-1:0] sfo_frac;
-reg [POWER_WIDTH+NUM_HARMONICS_LOG2-1:0] correlation_numerator, correlation_denominator;
+reg [POWER_WIDTH+MAX_NUM_HARMONICS_LOG2-1:0] correlation_numerator, correlation_denominator;
 reg [SKIRT_WIDTH_LOG2:0] bins_since_last_harmonic;
 
 //Scale the divisor depending on what the exponent is for fft_mag_in

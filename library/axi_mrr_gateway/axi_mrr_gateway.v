@@ -1338,9 +1338,9 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(pause_block), .changed());
 
-  wire [NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
+  wire [MAX_NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
   setting_reg #(
-      .my_addr(SR_NUM_HARMONICS), .awidth(8), .width(NUM_HARMONICS_LOG2), .at_reset(7))
+      .my_addr(SR_NUM_HARMONICS), .awidth(8), .width(MAX_NUM_HARMONICS_LOG2), .at_reset(7))
   sr_num_harmonics (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(setting_num_harmonics), .changed());
