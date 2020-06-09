@@ -163,7 +163,7 @@ input [SFO_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_frac;
 input [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
 input [RESAMPLE_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_resample_frac;
 input [RESAMPLE_INT_WIDTH*NUM_CORRELATORS-1:0] setting_resample_int;
-input [NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
+input [MAX_NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
 input [SECONDARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_secondary_fft_len_log2;
 input [SECONDARY_FFT_MAX_LEN_LOG2:0] setting_secondary_fft_len_mask;
 input setting_secondary_fft_len_log2_changed;

@@ -101,7 +101,7 @@ cfo_search_debug
     input rst;
     input [CORR_VAL_WIDTH-1:0] threshold_in;
     input [CORR_VAL_WIDTH-1:0] corr_threshold_in;
-    input [NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
+    input [MAX_NUM_HARMONICS_LOG2-1:0] setting_num_harmonics;
     input [SFO_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_frac;
     input [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
     input [RESAMPLE_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_resample_frac;
