@@ -813,6 +813,7 @@ module axi_mrr_gateway #(
       if(fft_mag_o_tvalid & fft_mag_o_tready) begin
         fft_buff_write_ctr <= fft_buff_write_ctr + 1;
         if(fft_buff_write_ctr == setting_hist_len_mask) begin
+          fft_buff_write_ctr <= 0;
           last_fft_buff_sample <= 1'b1;
         end else begin
           last_fft_buff_sample <= 1'b0;

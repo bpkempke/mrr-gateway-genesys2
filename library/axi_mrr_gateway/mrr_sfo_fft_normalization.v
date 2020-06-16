@@ -74,7 +74,7 @@ ram_2port #(.DWIDTH(PRIO_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) priority_ram
 
 //Offload priority results into this FFT block to allow for zero-latency access
 // to results upon output
-wire last_secondary_fft = (data_in_idx >> setting_primary_fft_len_log2 == setting_secondary_fft_len_mask);
+wire last_secondary_fft = (((data_in_idx >> setting_primary_fft_len_log2) & setting_secondary_fft_len_mask) == setting_secondary_fft_len_mask);
 wire [PRIO_WIDTH-1:0] data_out_shift_next;
 ram_2port #(.DWIDTH(PRIO_WIDTH), .AWIDTH(PRIMARY_FFT_MAX_LEN_LOG2)) priority_ram_pong (
     .clka(clk),
