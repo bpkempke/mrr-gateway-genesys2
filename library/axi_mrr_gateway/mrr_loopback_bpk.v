@@ -136,8 +136,9 @@ module mrr_loopback_bpk
         (cur_metadata_idx == 2) ? cur_time[63:32] :
         (cur_metadata_idx == 3) ? cur_time[31:0] :
         (cur_metadata_idx == 4) ? cur_corr :
-        (cur_metadata_idx == 5) ? cur_metadata[63:32] :
-                                  cur_metadata[31:0];
+        (cur_metadata_idx == 5) ? sfo_ctr : 
+        (cur_metadata_idx == 6) ? cur_metadata[63:32] :
+        (cur_metadata_idx == 7) ? cur_metadata[31:0] : 0;
 
     reg jitter_accum_en, accum_en;
     reg jitter_accum_rst, accum_rst;
