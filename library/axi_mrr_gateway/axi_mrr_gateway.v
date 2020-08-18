@@ -1232,6 +1232,7 @@ module axi_mrr_gateway #(
   localparam SR_CORR_DIV_RAM_RESET = 174;
   localparam SR_CFO_SEARCH_DEBUG = 175;
   localparam SR_CORR_THRE = 176;
+  localparam SR_NUM_PATHWAYS_ENABLED = 177;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1521,6 +1522,13 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(), .changed(corr_div_ram_reset));
 
+  wire [NUM_DECODE_PATHWAYS_LOG2-1:0] num_pathways_enabled;
+  setting_reg #(
+     .my_addr(SR_NUM_PATHWAYS_ENABLED), .awidth(8), .width(NUM_DECODE_PATHWAYS_LOG2), .at_reset(NUM_DECODE_PATHWAYS))
+  sr_num_pathways_enabled (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(num_pathways_enabled), .changed());
+
   wire [31:0] cfo_search_debug_in;
   setting_reg #(
      .my_addr(SR_CFO_SEARCH_DEBUG), .awidth(8), .width(32), .at_reset(0))
@@ -1675,6 +1683,7 @@ module axi_mrr_gateway #(
         .setting_secondary_fft_len_log2(setting_secondary_fft_len_log2),
         .setting_secondary_fft_len_mask(setting_secondary_fft_len_mask),
         .setting_secondary_fft_len_log2_changed(setting_secondary_fft_len_log2_changed),
+        .setting_num_pathways_enabled(num_pathways_enabled),
         .tx_word(tx_word),
         .tx_en_out(tx_en),
         .cur_time(cur_time),

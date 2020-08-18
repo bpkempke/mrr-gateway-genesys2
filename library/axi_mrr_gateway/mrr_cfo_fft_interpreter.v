@@ -91,6 +91,7 @@ setting_primary_fft_len_decim_mask,
 setting_secondary_fft_len_log2,
 setting_secondary_fft_len_mask,
 setting_secondary_fft_len_log2_changed,
+setting_num_pathways_enabled,
 reset_diagnostic_counter,
 window_ram_write_en,
 window_ram_write_data,
@@ -119,6 +120,7 @@ output reg i_replay_tready;
 input i_tvalid_fft;
 input i_tlast_fft;
 output i_tready_fft;
+input [NUM_DECODE_PATHWAYS_LOG2-1:0] setting_num_pathways_enabled;
 input [NUM_DECODE_PATHWAYS-1:0] o_tready;
 output [NUM_DECODE_PATHWAYS-1:0] o_tvalid;
 output [NUM_DECODE_PATHWAYS-1:0] o_tlast;
@@ -827,7 +829,7 @@ always @(posedge clk) begin
         if(reset_occupied_idx) begin
             occupied_idx <= 0;
         end else if(incr_occupied_idx) begin
-            if(occupied_idx < NUM_DECODE_PATHWAYS-1)
+            if(occupied_idx < setting_num_pathways_enabled-1)
                 occupied_idx <= occupied_idx + 1;
             else
                 occupied_idx <= 0;
@@ -842,7 +844,14 @@ always @(posedge clk) begin
     end
 end
 
-wire all_pathways_occupied = ((recently_assigned | (currently_decoding & global_search_done)) == {{NUM_DECODE_PATHWAYS}{1'b1}});
+wire [NUM_DECODE_PATHWAYS_LOG2-1:0] num_pathways_enabled_mask;
+mrr_log2_expand num_pathways_enabled_expand (
+    .clk(clk),
+    .num_log2_in(setting_num_pathways_enabled),
+    .num_out(),
+    .mask_out(num_pathways_enabled_mask)
+);
+wire all_pathways_occupied = ((recently_assigned | (currently_decoding & global_search_done)) == num_pathways_enabled_mask);
 
 //Logic to generate signal indicating whether there are additional local
 // searches left for each decode pathway
@@ -920,7 +929,7 @@ always @* begin
                 end else begin
                     next_assignment_state = ASSIGNMENT_STATE_ASSIGN_PATHWAY;
                 end
-            end else if(occupied_idx == NUM_DECODE_PATHWAYS-1) begin
+            end else if(occupied_idx == setting_num_pathways_enabled-1) begin
                 next_assignment_state = ASSIGNMENT_STATE_FIND_PATHWAY;
             end
         end
@@ -935,7 +944,7 @@ always @* begin
                                 //((~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < ASSIGNMENT_SKIRT_WIDTH) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < ASSIGNMENT_SKIRT_WIDTH))) || (highest_corr < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]);
             if(~incr_occupied_idx) begin
                 next_assignment_state = ASSIGNMENT_STATE_ASSIGN_PATHWAY;
-            end else if(occupied_idx == NUM_DECODE_PATHWAYS-1) begin
+            end else if(occupied_idx == setting_num_pathways_enabled-1) begin
                 next_assignment_state = ASSIGNMENT_STATE_DONE;
             end
         end
@@ -988,7 +997,7 @@ always @* begin
 
         ASSIGNMENT_STATE_CLEAR_PATHWAY3: begin
             incr_occupied_idx = 1'b1;
-            if(occupied_idx == NUM_DECODE_PATHWAYS-1) begin
+            if(occupied_idx == setting_num_pathways_enabled-1) begin
                 next_assignment_state = ASSIGNMENT_STATE_IDLE;
             end else begin
                 next_assignment_state = ASSIGNMENT_STATE_HOUSEKEEPING;

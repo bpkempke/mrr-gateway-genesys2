@@ -29,6 +29,7 @@ setting_primary_fft_len_decim_mask,
 setting_secondary_fft_len_log2,
 setting_secondary_fft_len_mask,
 setting_secondary_fft_len_log2_changed,
+setting_num_pathways_enabled,
 i_tdata_i,
 i_tdata_q,
 i_tlast,
@@ -114,6 +115,7 @@ cfo_search_debug
     input [PRIMARY_FFT_MAX_LEN_DECIM_LOG2-1:0] setting_primary_fft_len_decim_mask;
     input [SECONDARY_FFT_MAX_LEN_LOG2_LOG2-1:0] setting_secondary_fft_len_log2;
     input [SECONDARY_FFT_MAX_LEN_LOG2:0] setting_secondary_fft_len_mask;
+    input [NUM_DECODE_PATHWAYS_LOG2-1:0] setting_num_pathways_enabled;
     input setting_secondary_fft_len_log2_changed;
     input [15:0] i_tdata_i;
     input [15:0] i_tdata_q;
@@ -277,6 +279,7 @@ cfo_search_debug
         .setting_secondary_fft_len_log2(setting_secondary_fft_len_log2),
         .setting_secondary_fft_len_mask(setting_secondary_fft_len_mask),
         .setting_secondary_fft_len_log2_changed(setting_secondary_fft_len_log2_changed),
+        .setting_num_pathways_enabled(setting_num_pathways_enabled),
         .reset_diagnostic_counter(reset_diagnostic_counter),
         .window_ram_write_en(window_ram_write_en),
         .window_ram_write_data(window_ram_write_data),
