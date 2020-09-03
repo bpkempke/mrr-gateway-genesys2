@@ -5,7 +5,6 @@ localparam JITTER_INCR = 10;
 localparam JITTER_MIN = 100;
 localparam MAX_CHIPS_PER_SYMBOL_LOG2 = 6;
 localparam CORR_WAIT_LEN_LOG2 = 15;
-localparam ASSIGNMENT_SKIRT_WIDTH = 30;
 localparam SKIRT_WIDTH = 2;
 localparam SKIRT_WIDTH_LOG2 = 1;
 localparam RECHARGE_CYCLES = 4;

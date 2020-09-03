@@ -92,6 +92,7 @@ setting_secondary_fft_len_log2,
 setting_secondary_fft_len_mask,
 setting_secondary_fft_len_log2_changed,
 setting_num_pathways_enabled,
+setting_assignment_skirt_width,
 reset_diagnostic_counter,
 window_ram_write_en,
 window_ram_write_data,
@@ -121,6 +122,7 @@ input i_tvalid_fft;
 input i_tlast_fft;
 output i_tready_fft;
 input [NUM_DECODE_PATHWAYS_LOG2-1:0] setting_num_pathways_enabled;
+input [PRIMARY_FFT_MAX_LEN_LOG2-1:0] setting_assignment_skirt_width;
 input [NUM_DECODE_PATHWAYS-1:0] o_tready;
 output [NUM_DECODE_PATHWAYS-1:0] o_tvalid;
 output [NUM_DECODE_PATHWAYS-1:0] o_tlast;
@@ -819,7 +821,7 @@ always @(posedge clk) begin
             assignment_write_idx <= pathway_assignment_cfo_idx[occupied_idx];
             incr_counter <= 0;
         end else if(remove_skirt) begin
-            assignment_write_idx <= assignment_write_idx - ASSIGNMENT_SKIRT_WIDTH;
+            assignment_write_idx <= assignment_write_idx - setting_assignment_skirt_width;
         end else if(incr_assignment_write_idx) begin
             assignment_write_idx <= assignment_write_idx + 1;
             incr_counter <= incr_counter + 1;
@@ -917,12 +919,12 @@ always @* begin
 
         //Loop through occupied_idx, latch on any matching CFO assignments (similar logic to ASSIGNMENT_STATE_FIND_PATHWAY except exit to ASSIGNMENT_STATE_ASSIGN_PATHWAY if:
         //  - currently_decoding[occupied_idx] || recently_assignment[occupied_idx] AND
-        //  - assignment_read_idx is within ASSIGNMENT_SKIRT_WIDTH of pathway_assignment_cfo_idx[occupied_idx] AND
+        //  - assignment_read_idx is within setting_assignment_skirt_width of pathway_assignment_cfo_idx[occupied_idx] AND
         //Exit to ASSIGNMENT_STATE_DONE if
         //  - highest_corr is less than the current correlation OR
         //  - global_search_done[occupied_idx]
         ASSIGNMENT_STATE_FIND_PREEXISTING_PATHWAY: begin
-            incr_occupied_idx = ~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < ASSIGNMENT_SKIRT_WIDTH) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < ASSIGNMENT_SKIRT_WIDTH));
+            incr_occupied_idx = ~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < setting_assignment_skirt_width) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < setting_assignment_skirt_width));
             if(~incr_occupied_idx) begin
                 if(((highest_corr[31:0] < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]) && (currently_decoding[occupied_idx] || recently_assigned[occupied_idx])) begin
                     next_assignment_state = ASSIGNMENT_STATE_DONE;
@@ -941,7 +943,7 @@ always @* begin
             //   - correlation is less than current assignment OR
             //   - no more global searches left
             incr_occupied_idx = (currently_decoding[occupied_idx] || recently_assigned[occupied_idx]);// && 
-                                //((~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < ASSIGNMENT_SKIRT_WIDTH) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < ASSIGNMENT_SKIRT_WIDTH))) || (highest_corr < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]);
+                                //((~((assignment_read_idx - pathway_assignment_cfo_idx[occupied_idx] < setting_assignment_skirt_width) || (pathway_assignment_cfo_idx[occupied_idx] - assignment_read_idx < setting_assignment_skirt_width))) || (highest_corr < pathway_assignment_corr[occupied_idx]) || global_search_done[occupied_idx]);
             if(~incr_occupied_idx) begin
                 next_assignment_state = ASSIGNMENT_STATE_ASSIGN_PATHWAY;
             end else if(occupied_idx == setting_num_pathways_enabled-1) begin
@@ -964,7 +966,7 @@ always @* begin
             incr_assignment_write_idx = 1'b1;
             assignment_write_ena = 1'b1;
             assignment_write_data = 1'b1;
-            if(incr_counter == ASSIGNMENT_SKIRT_WIDTH*2) begin
+            if(incr_counter == setting_assignment_skirt_width*2) begin
                 next_assignment_state = ASSIGNMENT_STATE_DONE;
             end
         end
@@ -990,7 +992,7 @@ always @* begin
             incr_assignment_write_idx = 1'b1;
             assignment_write_ena = 1'b1;
             assignment_write_data = 1'b0;
-            if(incr_counter == ASSIGNMENT_SKIRT_WIDTH*2) begin
+            if(incr_counter == setting_assignment_skirt_width*2) begin
                 next_assignment_state = ASSIGNMENT_STATE_CLEAR_PATHWAY3;
             end
         end

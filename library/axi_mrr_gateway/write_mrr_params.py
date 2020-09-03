@@ -52,7 +52,6 @@ SFO_CTR_INCR = 1
 JITTER_INCR = 10
 JITTER_MIN = 100
 SKIRT_WIDTH_LOG2 = 1
-ASSIGNMENT_SKIRT_WIDTH = 30;
 CORR_WAIT_LEN_LOG2 = 15
 PULSE_SEPARATION_LOG2 = 1
 PRIMARY_FFT_WIDTH = 16
@@ -150,7 +149,6 @@ with open('mrr_params.vh','w') as f:
     f.write('localparam JITTER_MIN = {};\n'.format(JITTER_MIN))
     f.write('localparam MAX_CHIPS_PER_SYMBOL_LOG2 = {};\n'.format(MAX_CHIPS_PER_SYMBOL_LOG2))
     f.write('localparam CORR_WAIT_LEN_LOG2 = {};\n'.format(CORR_WAIT_LEN_LOG2))
-    f.write('localparam ASSIGNMENT_SKIRT_WIDTH = {};\n'.format(ASSIGNMENT_SKIRT_WIDTH))
     f.write('localparam SKIRT_WIDTH = {};\n'.format(SKIRT_WIDTH))
     f.write('localparam SKIRT_WIDTH_LOG2 = {};\n'.format(SKIRT_WIDTH_LOG2))
     f.write('localparam RECHARGE_CYCLES = {};\n'.format(RECHARGE_CYCLES))

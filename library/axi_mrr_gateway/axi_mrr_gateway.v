@@ -1233,6 +1233,7 @@ module axi_mrr_gateway #(
   localparam SR_CFO_SEARCH_DEBUG = 175;
   localparam SR_CORR_THRE = 176;
   localparam SR_NUM_PATHWAYS_ENABLED = 177;
+  localparam SR_ASSIGNMENT_SKIRT_WIDTH = 178;
 
   setting_reg #(
       .my_addr(SR_TURN_TICKS), .awidth(8), .width(32), .at_reset(16000))
@@ -1536,6 +1537,13 @@ module axi_mrr_gateway #(
     .clk(ce_clk), .rst(ce_rst_in_sync),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(cfo_search_debug_in), .changed());
 
+  wire [PRIMARY_FFT_MAX_LEN_LOG2-1:0] assignment_skirt_width;
+  setting_reg #(
+     .my_addr(SR_ASSIGNMENT_SKIRT_WIDTH), .awidth(8), .width(PRIMARY_FFT_MAX_LEN_LOG2), .at_reset(30))
+  sr_assignment_skirt_width (
+    .clk(ce_clk), .rst(ce_rst_in_sync),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(assignemnt_skirt_width), .changed());
+
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;
   reg [SFO_FRAC_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_frac;
@@ -1684,6 +1692,7 @@ module axi_mrr_gateway #(
         .setting_secondary_fft_len_mask(setting_secondary_fft_len_mask),
         .setting_secondary_fft_len_log2_changed(setting_secondary_fft_len_log2_changed),
         .setting_num_pathways_enabled(num_pathways_enabled),
+        .setting_assignment_skirt_width(assignment_skirt_width),
         .tx_word(tx_word),
         .tx_en_out(tx_en),
         .cur_time(cur_time),
