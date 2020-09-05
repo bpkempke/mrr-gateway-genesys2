@@ -1542,7 +1542,7 @@ module axi_mrr_gateway #(
      .my_addr(SR_ASSIGNMENT_SKIRT_WIDTH), .awidth(8), .width(PRIMARY_FFT_MAX_LEN_LOG2), .at_reset(30))
   sr_assignment_skirt_width (
     .clk(ce_clk), .rst(ce_rst_in_sync),
-    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(assignemnt_skirt_width), .changed());
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(assignment_skirt_width), .changed());
 
   //Shift register in all sfo_frac and sfo_int values
   reg [SFO_INT_WIDTH*NUM_CORRELATORS-1:0] setting_sfo_int;

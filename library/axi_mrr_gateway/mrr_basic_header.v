@@ -327,7 +327,8 @@ cfo_search_debug
         
             mrr_loopback_bpk #(.PACKET_INDEX(PACKET_INDEX)) inst_lb (
                 .clk(clk),
-                .rst(rst | pathway_reset[pathway_idx]),
+                .rst(rst),
+                .soft_reset(pathway_reset[pathway_idx]),
                 .setting_primary_fft_len(setting_primary_fft_len),
                 .setting_primary_fft_len_log2(setting_primary_fft_len_log2),
                 .tx_disable(tx_disable),

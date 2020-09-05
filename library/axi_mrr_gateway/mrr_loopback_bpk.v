@@ -5,12 +5,13 @@ module mrr_loopback_bpk
     parameter CWIDTH = 32,
     parameter ZWIDTH = 24,
     parameter PN_SEQ = 15'b000100110101111
-)(clk, rst, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, setting_primary_fft_len_log2, disable_sfo_it, tx_en);
+)(clk, rst, soft_reset, tx_disable, wait_step, tx_word, num_payload_bits, max_jitter, recharge_len, fm_flag, i_tdata, i_tvalid, i_tlast, i_tkeep, i_replay_flag, i_tready, o_tdata, o_tlast, o_tvalid, o_tready, o_tkeep, o_decoded_tdata, o_decoded_tvalid, o_decoded_tlast, o_decoded_tready, cfo_idx, sfo_idx, cur_time, cur_corr, cur_metadata, currently_decoding, detector_reset, setting_primary_fft_len, setting_primary_fft_len_log2, disable_sfo_it, tx_en);
 
     `include "mrr_params.vh"
 
     input clk; 
     input rst;
+    input soft_reset;
     input tx_disable; 
     input[15:0] wait_step;
     input[31:0] tx_word; 
@@ -205,6 +206,20 @@ module mrr_loopback_bpk
 
     always @(posedge clk) begin
         if(rst) begin
+            pps_counter <= 0;
+            pps_trigger <= 1'b0;
+        end else begin
+            if(pps_counter == 100000000) begin
+                pps_trigger <= 1'b1;
+                pps_counter <= 0;
+            end else begin
+                pps_counter <= pps_counter + 1;
+            end
+            if(pps_trigger && state == ST_READY) begin
+                pps_trigger <= 1'b0;
+            end
+        end
+        if(rst | soft_reset) begin
             state <= ST_READY;
             sfo_ctr <= 0;
             jitter <= 0;
@@ -230,23 +245,11 @@ module mrr_loopback_bpk
             jitter_accum_second_half <= 0;
             jitter_max_accum <= 0;
             cur_metadata_idx <= 0;
-            pps_counter <= 0;
-            pps_trigger <= 1'b0;
             loopback_counter <= 0;
             do_op_loopback <= 0;
         end else begin
             state <= next_state;
             mrr_cycle_counter_last <= mrr_cycle_counter_int_part;
-
-            if(pps_counter == 100000000) begin
-                pps_trigger <= 1'b1;
-                pps_counter <= 0;
-            end else begin
-                pps_counter <= pps_counter + 1;
-            end
-            if(pps_trigger && state == ST_READY) begin
-                pps_trigger <= 1'b0;
-            end
 
             if(sfo_div_result_valid) begin
                 sfo_div_result_reg <= sfo_div_result;

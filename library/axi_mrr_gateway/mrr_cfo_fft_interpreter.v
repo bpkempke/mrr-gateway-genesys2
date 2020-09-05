@@ -846,8 +846,8 @@ always @(posedge clk) begin
     end
 end
 
-wire [NUM_DECODE_PATHWAYS_LOG2-1:0] num_pathways_enabled_mask;
-mrr_log2_expand num_pathways_enabled_expand (
+wire [NUM_DECODE_PATHWAYS-1:0] num_pathways_enabled_mask;
+mrr_log2_expand #(.LOG2_WIDTH(NUM_DECODE_PATHWAYS_LOG2)) num_pathways_enabled_expand (
     .clk(clk),
     .num_log2_in(setting_num_pathways_enabled),
     .num_out(),
