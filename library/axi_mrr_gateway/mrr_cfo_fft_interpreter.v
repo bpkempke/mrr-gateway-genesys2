@@ -327,7 +327,8 @@ reg [3:0] corr_counter;
 reg corr_valid;
 wire first_cfo_flag = (cfo_index == 0);
 assign o_corr_tdata = (corr_counter == 0) ? {first_cfo_flag, metadata_max[62:32]} : 
-                      (corr_counter == 1) ? shift_read : metadata_max[31:0];
+                      (corr_counter == 1) ? shift_read : 
+                      (corr_counter == 2) ? metadata_max[31:0] : {6'd0,metadata_max[89:64]};
 assign o_corr_tvalid = corr_valid;
 assign o_corr_tlast = (corr_counter >= 2);//(cfo_index == setting_primary_fft_len-1);
 
@@ -853,7 +854,7 @@ mrr_log2_expand #(.LOG2_WIDTH(NUM_DECODE_PATHWAYS_LOG2)) num_pathways_enabled_ex
     .num_out(),
     .mask_out(num_pathways_enabled_mask)
 );
-wire all_pathways_occupied = ((recently_assigned | (currently_decoding & global_search_done)) == num_pathways_enabled_mask);
+wire all_pathways_occupied = ((currently_decoding & global_search_done) == num_pathways_enabled_mask);
 
 //Logic to generate signal indicating whether there are additional local
 // searches left for each decode pathway
@@ -1258,7 +1259,7 @@ always @* begin
             correlators_reset = 1'b1;
             clear_recently_assigned = 1'b1;
             if(trigger_search) begin
-                global_search_idx_incr = currently_decoding & ~global_search_done;
+                global_search_idx_incr = (recently_assigned | currently_decoding) & ~global_search_done;
                 next_state = STATE_SYNC_FFT_SAMPLES;
             end
         end

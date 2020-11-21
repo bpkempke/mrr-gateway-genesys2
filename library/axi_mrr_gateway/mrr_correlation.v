@@ -274,10 +274,10 @@ always @* begin
             training_offset_incr = 1'b1;
             store_highest_correlation = (cur_training_sequence_accum > max_training_sequence_accum);
             reset_training_sequence_indices = 1'b1;
-            if(cur_training_sequence_offset > sfo_int) begin
-                next_state = STATE_WAIT_SYNCD;
-            end else begin
+            if(cur_training_sequence_offset < sfo_int) begin
                 next_state = STATE_SEARCH_TRAINING_SEQUENCE1;
+            end else begin
+                next_state = STATE_WAIT_SYNCD;
             end
         end
 

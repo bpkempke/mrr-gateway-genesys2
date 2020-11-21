@@ -28,7 +28,7 @@ input correlation_update;
 input [POWER_WIDTH-1:0] fft_mag_in;
 input [FFT_SHIFT_WIDTH-1:0] fft_mag_exponent_in;
 output [CORR_MANTISSA_WIDTH:0] correlation_out;
-output [POWER_WIDTH*2-1:0] metadata_out;
+output [POWER_WIDTH*2+CORR_MANTISSA_WIDTH:0] metadata_out;
 output reg correlation_out_valid;
 
 // Index accumulators
@@ -88,7 +88,7 @@ divide_uint32 divide_corr_inst (
 wire [CORR_MANTISSA_WIDTH-1:0] corr_divide_out = {corr_divide_result_int_reg[12-:13],corr_divide_result_frac_reg[31-:13]};
 wire corr_meets_threshold = (corr_divide_out > corr_threshold);
 assign correlation_out = {corr_meets_threshold,divide_result_int_reg[12-:13],divide_result_frac_reg[31-:13]};
-assign metadata_out = {correlation_numerator[POWER_WIDTH-1:0],sfo_divisor[POWER_WIDTH-1:0]};
+assign metadata_out = {correlation_out,correlation_numerator[POWER_WIDTH-1:0],sfo_divisor[POWER_WIDTH-1:0]};
 
 always @(posedge clk) begin
     if(reset | correlation_reset) begin

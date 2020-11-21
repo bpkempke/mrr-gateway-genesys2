@@ -478,7 +478,7 @@ module mrr_loopback_bpk
                 payload_bit_ctr_incr  = (mrr_cycle_counter_int_part == recharge_len+2);
                 peak_search_update_timing = (mrr_cycle_counter_int_part == recharge_len+2);
 
-                if((payload_bit_ctr-pn_result_idx) == num_payload_bits) begin
+                if(((payload_bit_ctr-pn_result_idx) == num_payload_bits) && peak_search_update_timing_complete) begin
                     next_state = ST_WAIT_JITTER;
                 end
             end
@@ -489,7 +489,7 @@ module mrr_loopback_bpk
 		// to get the correct turnaround time, we should wait for it to
 		// go positive again...
                 mrr_cycle_counter_incr = do_op;
-                if(~mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-1]) begin
+                if(~mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2]) begin
                     mrr_cycle_counter_rst_int_part = 1'b1;
                     next_state = ST_WAIT_TURNAROUND;
                 end
