@@ -110,7 +110,7 @@ module mrr_loopback_bpk
     assign i_tready = o_tready;
 
     reg [3:0] state, next_state;
-    reg mrr_cycle_counter_incr, mrr_cycle_counter_rst, mrr_cycle_counter_rst_int_part;
+    reg mrr_cycle_counter_incr, mrr_cycle_counter_rst, mrr_cycle_counter_rst_int_part, mrr_cycle_counter_rst_loopback_part;
     reg tx_bit_ctr_incr, tx_bit_ctr_rst;
     reg [SFO_CTR_LEN_LOG2:0] sfo_ctr;
     reg [7+SFO_CTR_LEN_LOG2:0] jitter;
@@ -321,6 +321,8 @@ module mrr_loopback_bpk
                 jitter <= {max_jitter, {{SFO_CTR_LEN_LOG2}{1'b0}}};
             end else if(mrr_cycle_counter_rst_int_part) begin
                 mrr_cycle_counter[15+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16] <= 0;
+            end else if(mrr_cycle_counter_rst_loopback_part) begin
+                mrr_cycle_counter[13+OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2-:16] <= 0;
             end else if(mrr_cycle_counter_incr) begin
                 mrr_cycle_counter <= mrr_cycle_counter + sfo_ctr;
                 sfo_counter_num <= sfo_counter_num + sfo_ctr;
@@ -403,6 +405,7 @@ module mrr_loopback_bpk
         mrr_cycle_counter_incr = 1'b0;
         mrr_cycle_counter_rst = 1'b0;
         mrr_cycle_counter_rst_int_part = 1'b0;
+        mrr_cycle_counter_rst_loopback_part = 1'b0;
         tx_bit_ctr_rst = 1'b0;
         tx_bit_ctr_incr = 1'b0;
         o_tkeep = 1'b0;
@@ -479,27 +482,27 @@ module mrr_loopback_bpk
                 peak_search_update_timing = (mrr_cycle_counter_int_part == recharge_len+2);
 
                 if(((payload_bit_ctr-pn_result_idx) == num_payload_bits) && peak_search_update_timing_complete) begin
-                    next_state = ST_WAIT_JITTER;
-                end
-            end
-
-            ST_WAIT_JITTER: begin
-		//Jitter added on the last bit may make the
-		// mrr_cycle_counter_frac_part go negative.  Therefore, in order
-		// to get the correct turnaround time, we should wait for it to
-		// go positive again...
-                mrr_cycle_counter_incr = do_op;
-                if(~mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2]) begin
-                    mrr_cycle_counter_rst_int_part = 1'b1;
                     next_state = ST_WAIT_TURNAROUND;
                 end
             end
+
+            //ST_WAIT_JITTER: begin
+	    //    //Jitter added on the last bit may make the
+	    //    // mrr_cycle_counter_frac_part go negative.  Therefore, in order
+	    //    // to get the correct turnaround time, we should wait for it to
+	    //    // go positive again...
+            //    mrr_cycle_counter_incr = do_op;
+            //    if(~mrr_cycle_counter[OVERSAMPLING_RATIO_LOG2+SFO_CTR_LEN_LOG2]) begin
+            //        mrr_cycle_counter_rst_int_part = 1'b1;
+            //        next_state = ST_WAIT_TURNAROUND;
+            //    end
+            //end
 
             ST_WAIT_TURNAROUND: begin
                 tx_en = ~tx_disable;
                 mrr_cycle_counter_incr = do_op_loopback;
                 if(mrr_cycle_counter_loopback_part == wait_step) begin
-                    mrr_cycle_counter_rst_int_part = 1'b1;
+                    mrr_cycle_counter_rst_loopback_part = 1'b1;
                     next_state = ST_TX;
                 end
             end
@@ -510,7 +513,7 @@ module mrr_loopback_bpk
                 tx_en = ~tx_disable;
                 detector_reset = 1'b1;
                 mrr_cycle_counter_incr = do_op_loopback;
-                mrr_cycle_counter_rst_int_part = (mrr_cycle_counter_loopback_part == 4);
+                mrr_cycle_counter_rst_loopback_part = (mrr_cycle_counter_loopback_part == 4);
                 tx_bit_ctr_incr = (mrr_cycle_counter_loopback_part == 4);
                 o_tkeep = (tx_disable) ? 1'b0 : (cur_bit) ? (mrr_cycle_counter_loopback_part <= 1) : (mrr_cycle_counter_loopback_part >= 2);
                 if(tx_bit_ctr == 32) begin

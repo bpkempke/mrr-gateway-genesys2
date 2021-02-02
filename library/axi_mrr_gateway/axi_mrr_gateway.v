@@ -607,7 +607,10 @@ module axi_mrr_gateway #(
   wire txnrx_request_sync;
   wire [31:0] out_tdata_sync;
   reg [31:0] out_tdata_presync_reg;
+
+  //TODO: Won't handle multiple pathways correctly...
   wire [31:0] out_tdata_presync = (out_tkeep) ? out_tdata : 32'd0;
+
   synchronizer #(.INITIAL_VAL(1'b0)) txnrx_request_sync_inst (.clk(s_axi_aclk), .rst(1'b0), .in(txnrx_request), .out(txnrx_request_sync));
   synchronizer #(.WIDTH(32), .INITIAL_VAL(0)) out_tdata_sync_inst (.clk(adc_clk), .rst(1'b0), .in(out_tdata_presync_reg), .out(out_tdata_sync));
 
@@ -1642,8 +1645,8 @@ module axi_mrr_gateway #(
       20 : rb_data <= cfo_search_debug[95-:32];
       21 : rb_data <= cfo_search_debug[63-:32];
       22 : rb_data <= cfo_search_debug[31-:32];
-      23 : rb_data <= {32'h0,4'h0,GIT_VERSION};
-      24 : rb_data <= primary_fft_mask_temp;
+      23 : rb_data <= "   MRR00"; //"  BFLY00" "   MRR00" "    TC00"
+      24 : rb_data <= "  v3.9.5";
       default        : rb_data <= 64'h0BADC0DE0BADC0DE;
     endcase
   end
