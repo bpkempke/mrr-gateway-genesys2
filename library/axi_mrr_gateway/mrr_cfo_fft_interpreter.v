@@ -222,9 +222,9 @@ reg correlator_shift_out;
 reg correlator_shift_reset;
 wire [FFT_SHIFT_WIDTH-1:0] shift_read;
 reg [3:0] correlator_shift_phase;
-reg [CORR_MANTISSA_WIDTH:0] correlation_out_shift [NUM_CORRELATORS-1:0];
+reg [CORR_WIDTH:0] correlation_out_shift [NUM_CORRELATORS-1:0];
 reg [CORR_METADATA_WIDTH-1:0] metadata_out_shift [NUM_CORRELATORS-1:0];
-wire [CORR_WIDTH:0] cur_corr = {correlation_out_shift[0][26],{{CORR_WIDTH-CORR_MANTISSA_WIDTH}{1'b0}},correlation_out_shift[0][25:0]}; //TODO: This is pretty ugly with bit 32 having a separate meaning than 31:0.  Should probably separate these at some point
+wire [CORR_WIDTH:0] cur_corr = correlation_out_shift[0];//{correlation_out_shift[0][32],{{CORR_WIDTH-CORR_MANTISSA_WIDTH}{1'b0}},correlation_out_shift[0][25:0]}; //TODO: This is pretty ugly with bit 32 having a separate meaning than 31:0.  Should probably separate these at some point
 wire [CORR_METADATA_WIDTH-1:0] cur_metadata = metadata_out_shift[0];
 localparam CORR_SHIFT_PHASE_INCR = 0;
 localparam CORR_SHIFT_PHASE_READ = 1;
@@ -328,7 +328,7 @@ reg corr_valid;
 wire first_cfo_flag = (cfo_index == 0);
 assign o_corr_tdata = (corr_counter == 0) ? {first_cfo_flag, metadata_max[62:32]} : 
                       (corr_counter == 1) ? shift_read : 
-                      (corr_counter == 2) ? metadata_max[31:0] : {6'd0,metadata_max[89:64]};
+                      (corr_counter == 2) ? metadata_max[31:0] : metadata_max[95:64];
 assign o_corr_tvalid = corr_valid;
 assign o_corr_tlast = (corr_counter >= 2);//(cfo_index == setting_primary_fft_len-1);
 
@@ -692,7 +692,7 @@ endgenerate
 reg correlation_search_reset;
 reg correlators_reset, correlators_reset_last;
 wire correlation_update = mag_phase_o_tvalid & mag_phase_o_tready;//TODO:??? & ~correlators_reset_last; //TODO: This is a bug with magsq block... should revisit since this is a bug in the magsq block...
-wire [CORR_MANTISSA_WIDTH:0] correlation_out [NUM_CORRELATORS-1:0];
+wire [CORR_WIDTH:0] correlation_out [NUM_CORRELATORS-1:0];
 wire [CORR_METADATA_WIDTH-1:0] metadata_out [NUM_CORRELATORS-1:0];
 wire [NUM_CORRELATORS-1:0] correlation_out_valid;
 
